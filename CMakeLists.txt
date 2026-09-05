@@ -45,4 +45,9 @@ endif()
 
 if (WIN32)
     target_compile_definitions(Pixel-Game PRIVATE NOMINMAX)
+    set_target_properties(Pixel-Game PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+
+if (MSVC)
+    target_link_options(Pixel-Game PRIVATE /ENTRY:mainCRTStartup)
 endif()
