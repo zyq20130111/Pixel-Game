@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AvoidTheBlocks LANGUAGES CXX)
+project(Pixel-Game LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,7 +20,7 @@ FetchContent_MakeAvailable(glfw)
 find_package(OpenGL REQUIRED)
 
 add_executable(
-    avoid_the_blocks
+    Pixel-Game
     src/main.cpp
     src/ThreeDUtils.cpp
     src/Camera.cpp
@@ -35,14 +35,14 @@ add_executable(
     src/LoginScreen.cpp
     src/MainScene.cpp
 )
-target_link_libraries(avoid_the_blocks PRIVATE glfw OpenGL::GL)
+target_link_libraries(Pixel-Game PRIVATE glfw OpenGL::GL)
 
 if (MSVC)
-    target_compile_options(avoid_the_blocks PRIVATE /W4 /permissive- /utf-8)
+    target_compile_options(Pixel-Game PRIVATE /W4 /permissive- /utf-8)
 else()
-    target_compile_options(avoid_the_blocks PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Pixel-Game PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 if (WIN32)
-    target_compile_definitions(avoid_the_blocks PRIVATE NOMINMAX)
+    target_compile_definitions(Pixel-Game PRIVATE NOMINMAX)
 endif()

@@ -22,7 +22,7 @@ cmake --build build --config Release
 
 运行程序：
 
-- Windows Visual Studio 生成器：`build/Release/avoid_the_blocks.exe`
-- 单配置生成器：`build/avoid_the_blocks`
+- Windows Visual Studio 生成器：`build/Release/Pixel-Game.exe`
+- 单配置生成器：`build/Pixel-Game`
 
-如果使用 Visual Studio，也可以打开 `build/AvoidTheBlocks.sln` 后运行 `avoid_the_blocks` 目标。
+如果使用 Visual Studio，也可以打开 `build/Pixel-Game.sln` 后运行 `Pixel-Game` 目标。
