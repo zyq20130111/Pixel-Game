@@ -268,6 +268,29 @@ void ThreeDUtils::drawCube(const Vec3& center, const Vec3& size,
     drawFace(p100, p101, p111, p110, shade(baseColor, 0.85f));
     drawFace(p010, p110, p111, p011, shade(baseColor, 1.10f));
     drawFace(p000, p001, p101, p100, shade(baseColor, 0.58f));
+
+    // A single ink pass gives every low-poly prop a readable cartoon silhouette.
+    glColor3f(constants::kInkColor.red, constants::kInkColor.green,
+              constants::kInkColor.blue);
+    glLineWidth(constants::kCartoonOutlineWidth);
+    glBegin(GL_LINES);
+    const auto edge = [](const Vec3& from, const Vec3& to) {
+        glVertex3f(from.x, from.y, from.z);
+        glVertex3f(to.x, to.y, to.z);
+    };
+    edge(p000, p001);
+    edge(p001, p101);
+    edge(p101, p100);
+    edge(p100, p000);
+    edge(p010, p011);
+    edge(p011, p111);
+    edge(p111, p110);
+    edge(p110, p010);
+    edge(p000, p010);
+    edge(p001, p011);
+    edge(p101, p111);
+    edge(p100, p110);
+    glEnd();
 }
 
 void ThreeDUtils::drawPivotedCube(const Vec3& pivot, const Vec3& offset,

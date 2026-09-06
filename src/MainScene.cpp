@@ -379,6 +379,10 @@ void MainScene::renderScene() const {
     drawHouse({-5.0f, 0.0f, -3.0f});
     drawHouse({4.8f, 0.0f, -6.0f});
 
+    drawCloud({-7.5f, 7.2f, -10.0f}, 1.0f);
+    drawCloud({6.5f, 8.3f, -18.0f}, 1.25f);
+    drawCloud({12.0f, 6.4f, 1.0f}, 0.8f);
+
     drawTree({-8.5f, 0.0f, -4.5f});
     drawTree({-3.5f, 0.0f, -8.0f});
     drawTree({2.0f, 0.0f, -4.0f});
@@ -614,6 +618,12 @@ void MainScene::drawGround() const {
             ThreeDUtils::drawCube({static_cast<float>(x), -0.09f,
                                    static_cast<float>(z)},
                                   {0.98f, 0.18f, 0.98f}, color);
+            if (z >= 11 && (x + z) % 3 == 0) {
+                ThreeDUtils::drawCube(
+                    {static_cast<float>(x) - 0.12f, 0.025f,
+                     static_cast<float>(z) - 0.05f},
+                    {0.40f, 0.025f, 0.07f}, kWaterHighlight);
+            }
         }
     }
 }
@@ -627,6 +637,12 @@ void MainScene::drawTree(const Vec3& base) const {
                           {1.3f, 0.9f, 1.3f}, kLeafColor);
     ThreeDUtils::drawCube({base.x, base.y + 2.80f, base.z},
                           {0.9f, 0.8f, 0.9f}, kLeafDarkColor);
+    ThreeDUtils::drawCube({base.x - 0.56f, base.y + 1.72f, base.z + 0.12f},
+                          {0.40f, 0.34f, 0.40f}, kLeafColor);
+    ThreeDUtils::drawCube({base.x + 0.54f, base.y + 2.18f, base.z - 0.08f},
+                          {0.34f, 0.34f, 0.34f}, kLeafDarkColor);
+    ThreeDUtils::drawCube({base.x - 0.22f, base.y + 2.38f, base.z + 0.48f},
+                          {0.16f, 0.16f, 0.16f}, kSunCore);
 }
 
 void MainScene::drawRock(const Vec3& base, float scale) const {
@@ -646,9 +662,38 @@ void MainScene::drawHouse(const Vec3& base) const {
                           {2.8f, 0.7f, 2.4f}, kHouseRoof);
     ThreeDUtils::drawCube({base.x, base.y + 2.35f, base.z},
                           {1.2f, 0.5f, 1.2f}, kHouseRoofDark);
-    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.75f,
+    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
                            base.z + 1.01f},
-                          {0.28f, 0.45f, 0.08f}, kPathColor);
+                          {0.38f, 0.72f, 0.08f}, kHouseWindow);
+    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
+                           base.z + 1.06f},
+                          {0.18f, 0.58f, 0.025f}, kHouseWindowLight);
+    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
+                           base.z + 1.07f},
+                          {0.36f, 0.08f, 0.025f}, kHouseTrim);
+    ThreeDUtils::drawCube({base.x + 0.58f, base.y + 0.63f,
+                           base.z + 1.01f},
+                          {0.48f, 0.92f, 0.08f}, kHouseDoor);
+    ThreeDUtils::drawCube({base.x + 0.74f, base.y + 0.66f,
+                           base.z + 1.07f},
+                          {0.07f, 0.07f, 0.04f}, kHouseDoorKnob);
+    ThreeDUtils::drawCube({base.x, base.y + 1.75f, base.z + 1.03f},
+                          {1.90f, 0.12f, 0.08f}, kHouseTrim);
+}
+
+void MainScene::drawCloud(const Vec3& base, float scale) const {
+    ThreeDUtils::drawCube(
+        {base.x, base.y - 0.14f * scale, base.z},
+        {2.15f * scale, 0.56f * scale, 0.72f * scale}, kCloudShadow);
+    ThreeDUtils::drawCube(
+        {base.x - 0.62f * scale, base.y + 0.08f * scale, base.z},
+        {1.0f * scale, 0.75f * scale, 0.84f * scale}, kCloudColor);
+    ThreeDUtils::drawCube(
+        {base.x + 0.05f * scale, base.y + 0.24f * scale, base.z},
+        {1.24f * scale, 0.92f * scale, 0.94f * scale}, kCloudColor);
+    ThreeDUtils::drawCube(
+        {base.x + 0.78f * scale, base.y + 0.02f * scale, base.z},
+        {0.90f * scale, 0.68f * scale, 0.78f * scale}, kCloudColor);
 }
 
 bool MainScene::segmentHitsGround(const Vec3& start, const Vec3& end,

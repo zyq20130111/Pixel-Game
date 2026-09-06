@@ -39,6 +39,7 @@ private:
     void drawGround() const;
     void drawTree(const Vec3& base) const;
     void drawRock(const Vec3& base, float scale) const;
+    void drawCloud(const Vec3& base, float scale) const;
     void drawHouse(const Vec3& base) const;
 
     static bool segmentHitsGround(const Vec3& start, const Vec3& end,

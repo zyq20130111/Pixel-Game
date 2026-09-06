@@ -122,6 +122,10 @@ void CharacterModel::render() const {
                           constants::kCharacterShirt);
     ThreeDUtils::drawCube({0.18f, 1.67f, -0.18f}, {0.42f, 0.90f, 0.25f},
                           constants::kCharacterShirtDark);
+    ThreeDUtils::drawCube({0.0f, 1.88f, 0.34f}, {0.34f, 0.34f, 0.08f},
+                          constants::kCharacterShirtAccent);
+    ThreeDUtils::drawCube({0.0f, 1.88f, 0.39f}, {0.14f, 0.14f, 0.04f},
+                          constants::kInkColor);
     ThreeDUtils::drawCube({-0.05f, 2.23f, 0.35f}, {0.70f, 0.18f, 0.42f},
                           constants::kCharacterSkin);
 
@@ -142,14 +146,24 @@ void CharacterModel::render() const {
                           constants::kCharacterSkin);
     ThreeDUtils::drawCube({0.0f, 3.23f, -0.08f}, {1.08f, 0.48f, 1.08f},
                           constants::kCharacterHair);
-    ThreeDUtils::drawCube({-0.15f, 3.01f, 0.52f}, {0.14f, 0.14f, 0.14f},
+    ThreeDUtils::drawCube({-0.15f, 3.01f, 0.52f}, {0.24f, 0.20f, 0.08f},
+                          constants::kCharacterEyeWhite);
+    ThreeDUtils::drawCube({0.15f, 3.01f, 0.52f}, {0.24f, 0.20f, 0.08f},
+                          constants::kCharacterEyeWhite);
+    ThreeDUtils::drawCube({-0.15f, 3.01f, 0.57f}, {0.10f, 0.12f, 0.05f},
                           constants::kCharacterEye);
-    ThreeDUtils::drawCube({0.15f, 3.01f, 0.52f}, {0.14f, 0.14f, 0.14f},
+    ThreeDUtils::drawCube({0.15f, 3.01f, 0.57f}, {0.10f, 0.12f, 0.05f},
                           constants::kCharacterEye);
     ThreeDUtils::drawCube({0.0f, 2.87f, 0.54f}, {0.10f, 0.10f, 0.10f},
                           constants::kCharacterCheek);
+    ThreeDUtils::drawCube({-0.27f, 2.87f, 0.54f}, {0.14f, 0.10f, 0.05f},
+                          constants::kCharacterCheek);
+    ThreeDUtils::drawCube({0.27f, 2.87f, 0.54f}, {0.14f, 0.10f, 0.05f},
+                          constants::kCharacterCheek);
+    ThreeDUtils::drawCube({0.0f, 2.82f, 0.56f}, {0.20f, 0.07f, 0.05f},
+                          constants::kCharacterMouth);
     ThreeDUtils::drawCube({0.0f, 3.27f, 0.56f}, {0.24f, 0.12f, 0.10f},
-                          constants::kCharacterHair);
+                          constants::kCharacterHairLight);
 
     glPopMatrix();
 }
