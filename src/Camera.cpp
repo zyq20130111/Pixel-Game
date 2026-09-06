@@ -27,10 +27,6 @@ void Camera::reset(const Vec3& position) {
 }
 
 bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-    }
-
     Vec3 direction{};
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
         direction.z -= 1.0f;

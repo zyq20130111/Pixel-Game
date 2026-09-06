@@ -17,6 +17,92 @@ namespace {
 
 using namespace constants;
 
+struct ExitPromptLayout {
+    Rect panel;
+    Rect yesButton;
+    Rect noButton;
+};
+
+bool contains(const Rect& rect, float x, float y) {
+    return x >= rect.x && x <= rect.x + rect.width && y >= rect.y &&
+           y <= rect.y + rect.height;
+}
+
+MouseState getMouseState(GLFWwindow* window, int framebufferWidth,
+                         int framebufferHeight) {
+    int windowWidth = 1;
+    int windowHeight = 1;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    double cursorX = 0.0;
+    double cursorY = 0.0;
+    glfwGetCursorPos(window, &cursorX, &cursorY);
+
+    return {
+        static_cast<float>(cursorX) * static_cast<float>(framebufferWidth) /
+            static_cast<float>(windowWidth),
+        static_cast<float>(cursorY) * static_cast<float>(framebufferHeight) /
+            static_cast<float>(windowHeight),
+        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
+    };
+}
+
+ExitPromptLayout makeExitPromptLayout(int width, int height) {
+    const float scale =
+        std::min(static_cast<float>(width) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(height) /
+                     static_cast<float>(kWindowHeight));
+    const float panelWidth =
+        std::min(520.0f * scale, static_cast<float>(width) - 48.0f);
+    const float panelHeight =
+        std::min(270.0f * scale, static_cast<float>(height) - 48.0f);
+    const float panelX = (static_cast<float>(width) - panelWidth) * 0.5f;
+    const float panelY = (static_cast<float>(height) - panelHeight) * 0.5f;
+    const float buttonGap = 24.0f * scale;
+    const float buttonWidth =
+        std::min(170.0f * scale, (panelWidth - 72.0f * scale) * 0.5f);
+    const float buttonHeight = std::max(34.0f, 58.0f * scale);
+    const float buttonsWidth = buttonWidth * 2.0f + buttonGap;
+    const float buttonY =
+        panelY + panelHeight - buttonHeight - 42.0f * scale;
+    const float yesX = panelX + (panelWidth - buttonsWidth) * 0.5f;
+
+    return {
+        {panelX, panelY, panelWidth, panelHeight},
+        {yesX, buttonY, buttonWidth, buttonHeight},
+        {yesX + buttonWidth + buttonGap, buttonY, buttonWidth, buttonHeight},
+    };
+}
+
+void drawPromptButton(const Rect& button, const char* label,
+                      const Color& baseColor, bool hovered, float uiScale) {
+    const Color shadow = ThreeDUtils::shade(baseColor, 0.55f);
+    const Color fill =
+        hovered ? ThreeDUtils::shade(baseColor, 1.18f) : baseColor;
+    const float pixel = std::max(1.0f, 3.0f * uiScale);
+
+    ThreeDUtils::drawRect2D(
+        {button.x, button.y + 5.0f * uiScale, button.width, button.height},
+        shadow);
+    ThreeDUtils::drawRect2D(button, fill);
+    ThreeDUtils::drawFrame2D(button, kInkColor, pixel);
+    ThreeDUtils::drawRect2D(
+        {button.x + pixel, button.y + pixel,
+         button.width - 2.0f * pixel, pixel},
+        ThreeDUtils::shade(fill, 1.25f));
+
+    const float textScale = std::max(1.0f, 3.0f * uiScale);
+    const float textY =
+        button.y + (button.height - 7.0f * textScale) * 0.5f;
+    const std::string text(label);
+    ThreeDUtils::drawText(
+        text, button.x + (button.width -
+                          ThreeDUtils::textWidth(text, textScale)) *
+                             0.5f,
+        textY, textScale, Color{1.0f, 1.0f, 0.92f});
+}
+
 }  // namespace
 
 MainScene::MainScene()
@@ -33,7 +119,11 @@ MainScene::MainScene()
       bullets_(),
       impactEffects_(),
       previousFireDown_(false),
-      previousJumpDown_(false) {}
+      previousJumpDown_(false),
+      previousEscapeDown_(false),
+      exitPromptVisible_(false),
+      previousPromptMouseDown_(false),
+      promptMouse_{0.0f, 0.0f, false} {}
 
 MainScene::~MainScene() {
     if (window_ != nullptr) {
@@ -80,12 +170,20 @@ int MainScene::run() {
             renderFrame(menuCamera_, false);
             loginScreen_.render(framebufferWidth_, framebufferHeight_);
         } else {
-            updateGameplay(dt);
+            const bool promptWasVisible = exitPromptVisible_;
+            updateExitPrompt();
+            if (!promptWasVisible && !exitPromptVisible_) {
+                updateGameplay(dt);
+            }
+
             ThreeDUtils::setProjection(
                 framebufferWidth_, framebufferHeight_,
                 ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
             camera_.apply();
             renderFrame(camera_, true);
+            if (exitPromptVisible_) {
+                renderExitPrompt();
+            }
         }
 
         updateWindowTitle(window_, state_);
@@ -102,8 +200,25 @@ bool MainScene::initialize() {
     }
     glfwInitialized_ = true;
 
-    window_ = glfwCreateWindow(kWindowWidth, kWindowHeight, "Pixel World 3D",
-                               nullptr, nullptr);
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* videoMode =
+        monitor != nullptr ? glfwGetVideoMode(monitor) : nullptr;
+    int windowWidth = kWindowWidth;
+    int windowHeight = kWindowHeight;
+
+    if (videoMode != nullptr) {
+        windowWidth = videoMode->width;
+        windowHeight = videoMode->height;
+        glfwWindowHint(GLFW_RED_BITS, videoMode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, videoMode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, videoMode->blueBits);
+        glfwWindowHint(GLFW_REFRESH_RATE, videoMode->refreshRate);
+    } else {
+        monitor = nullptr;
+    }
+
+    window_ = glfwCreateWindow(windowWidth, windowHeight, "Pixel World 3D",
+                               monitor, nullptr);
     if (window_ == nullptr) {
         std::cerr << "Failed to create GLFW window.\n";
         return false;
@@ -127,6 +242,45 @@ void MainScene::resetGame() {
     pistol_.reset();
     bullets_.clear();
     impactEffects_.clear();
+    exitPromptVisible_ = false;
+    previousEscapeDown_ =
+        glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    previousPromptMouseDown_ =
+        glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+void MainScene::updateExitPrompt() {
+    const bool escapeDown =
+        glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    if (escapeDown && !previousEscapeDown_ && !exitPromptVisible_) {
+        exitPromptVisible_ = true;
+        previousPromptMouseDown_ =
+            glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    }
+    previousEscapeDown_ = escapeDown;
+
+    if (!exitPromptVisible_) {
+        return;
+    }
+
+    promptMouse_ =
+        getMouseState(window_, framebufferWidth_, framebufferHeight_);
+    const bool clicked = promptMouse_.pressed && !previousPromptMouseDown_;
+    previousPromptMouseDown_ = promptMouse_.pressed;
+    if (!clicked) {
+        return;
+    }
+
+    const ExitPromptLayout layout =
+        makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
+    if (contains(layout.yesButton, promptMouse_.x, promptMouse_.y)) {
+        glfwSetWindowShouldClose(window_, GLFW_TRUE);
+    } else if (contains(layout.noButton, promptMouse_.x, promptMouse_.y)) {
+        exitPromptVisible_ = false;
+        previousFireDown_ = promptMouse_.pressed;
+        previousJumpDown_ =
+            glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
+    }
 }
 
 void MainScene::updateGameplay(float dt) {
@@ -245,6 +399,59 @@ void MainScene::renderScene() const {
             {0.7f, 0.6f, 0.7f},
             ThreeDUtils::shade(kStoneColor, 0.85f + 0.03f * i));
     }
+}
+
+void MainScene::renderExitPrompt() const {
+    const ExitPromptLayout layout =
+        makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    ThreeDUtils::drawRect2D(
+        {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+         static_cast<float>(framebufferHeight_)},
+        kInkColor, 0.52f);
+    ThreeDUtils::drawRect2D(
+        {layout.panel.x + 8.0f * uiScale, layout.panel.y + 8.0f * uiScale,
+         layout.panel.width, layout.panel.height},
+        kInkColor, 0.35f);
+    ThreeDUtils::drawRect2D(layout.panel, kPanelBottom, 0.98f);
+    ThreeDUtils::drawRect2D(
+        {layout.panel.x, layout.panel.y, layout.panel.width,
+         layout.panel.height * 0.42f},
+        kPanelTop, 0.98f);
+    ThreeDUtils::drawFrame2D(
+        layout.panel, kInkColor, std::max(2.0f, 5.0f * uiScale));
+
+    ThreeDUtils::drawCenteredText(
+        "EXIT GAME", layout.panel, std::max(1.0f, 4.0f * uiScale),
+        kInkColor, 42.0f * uiScale);
+    ThreeDUtils::drawCenteredText(
+        "ARE YOU SURE", layout.panel, std::max(1.0f, 2.4f * uiScale),
+        ThreeDUtils::shade(kInkColor, 1.2f), 104.0f * uiScale);
+
+    drawPromptButton(layout.yesButton, "YES", kButtonExit,
+                     contains(layout.yesButton, promptMouse_.x, promptMouse_.y),
+                     uiScale);
+    drawPromptButton(layout.noButton, "NO", kButtonStart,
+                     contains(layout.noButton, promptMouse_.x, promptMouse_.y),
+                     uiScale);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
 }
 
 void MainScene::renderImpactEffects() const {
@@ -540,7 +747,7 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state) {
     const std::string title =
         state == AppState::MainMenu
             ? "Pixel World 3D | Main Menu"
-            : "Pixel World 3D | LMB fire | RMB aim | Shift run | Space jump | Arrows walk | WASD camera | Esc quit";
+            : "Pixel World 3D | LMB fire | RMB aim | Shift run | Space jump | Arrows walk | WASD camera | Esc exit";
     if (title == lastTitle) {
         return;
     }

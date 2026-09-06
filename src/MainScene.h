@@ -24,10 +24,12 @@ public:
 private:
     bool initialize();
     void resetGame();
+    void updateExitPrompt();
     void updateGameplay(float dt);
     void updateBullets(float dt);
     void updateImpactEffects(float dt);
     void renderFrame(const Camera& camera, bool showPistol);
+    void renderExitPrompt() const;
     void renderScene() const;
     void renderImpactEffects() const;
     void renderCrosshair() const;
@@ -63,6 +65,10 @@ private:
     std::vector<ImpactEffect> impactEffects_;
     bool previousFireDown_;
     bool previousJumpDown_;
+    bool previousEscapeDown_;
+    bool exitPromptVisible_;
+    bool previousPromptMouseDown_;
+    MouseState promptMouse_;
 };
 
 }  // namespace pixel_world
