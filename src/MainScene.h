@@ -40,7 +40,13 @@ private:
     void drawTree(const Vec3& base) const;
     void drawRock(const Vec3& base, float scale) const;
     void drawCloud(const Vec3& base, float scale) const;
-    void drawHouse(const Vec3& base) const;
+    void drawRoad(const Vec3& center, const Vec3& size) const;
+    void drawBuilding(const Vec3& base, const Color& wallColor,
+                      const Color& roofColor, const char* label,
+                      const char* subtitle) const;
+    void drawCentralPlaza() const;
+    void drawPixelStatue() const;
+    void drawDungeonPortal() const;
 
     static bool segmentHitsGround(const Vec3& start, const Vec3& end,
                                   float& hitT);

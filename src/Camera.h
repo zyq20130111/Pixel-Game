@@ -10,7 +10,7 @@ public:
     Camera();
     explicit Camera(const Vec3& position);
 
-    void reset(const Vec3& position = {0.0f, 2.8f, 10.0f});
+    void reset(const Vec3& position = {0.0f, 2.8f, 17.5f});
     bool update(GLFWwindow* window, float dt, bool& previousJumpDown);
     void updateAim(GLFWwindow* window, float dt);
 

@@ -17,6 +17,11 @@ namespace {
 
 using namespace constants;
 
+constexpr float kMapScale = 1.45f;
+constexpr float kBuildingScale = 1.55f;
+constexpr float kBuildingHeightScale = 1.35f;
+constexpr float kDecorationScale = 1.25f;
+
 struct ExitPromptLayout {
     Rect panel;
     Rect yesButton;
@@ -103,6 +108,18 @@ void drawPromptButton(const Rect& button, const char* label,
         textY, textScale, Color{1.0f, 1.0f, 0.92f});
 }
 
+void drawWorldLabel(const char* label, const Vec3& center, float pixelScale,
+                    const Color& color) {
+    const std::string text(label);
+    glPushMatrix();
+    glTranslatef(center.x, center.y, center.z);
+    glScalef(1.0f, -1.0f, 1.0f);
+    ThreeDUtils::drawText(
+        text, -ThreeDUtils::textWidth(text, pixelScale) * 0.5f, 0.0f,
+        pixelScale, color);
+    glPopMatrix();
+}
+
 }  // namespace
 
 MainScene::MainScene()
@@ -112,7 +129,7 @@ MainScene::MainScene()
       framebufferHeight_(0),
       state_(AppState::MainMenu),
       camera_(),
-      menuCamera_({0.0f, kCameraGroundHeight, 10.0f}),
+      menuCamera_({0.0f, kCameraGroundHeight, 17.5f}),
       character_(),
       pistol_(),
       loginScreen_(),
@@ -376,33 +393,57 @@ void MainScene::renderFrame(const Camera& camera, bool showPistol) {
 
 void MainScene::renderScene() const {
     drawGround();
-    drawHouse({-5.0f, 0.0f, -3.0f});
-    drawHouse({4.8f, 0.0f, -6.0f});
+
+    drawRoad({0.0f, 0.04f, -3.8f}, {1.45f, 0.12f, 4.2f});
+    drawRoad({0.0f, 0.04f, -5.6f}, {10.5f, 0.12f, 1.35f});
+    drawRoad({-4.8f, 0.04f, -6.7f}, {1.30f, 0.12f, 2.6f});
+    drawRoad({4.8f, 0.04f, -6.7f}, {1.30f, 0.12f, 2.6f});
+
+    drawRoad({0.0f, 0.04f, 7.3f}, {1.50f, 0.12f, 11.0f});
+    drawRoad({0.0f, 0.04f, 5.7f}, {10.5f, 0.12f, 1.35f});
+    drawRoad({-4.8f, 0.04f, 4.7f}, {1.30f, 0.12f, 2.45f});
+    drawRoad({4.8f, 0.04f, 4.7f}, {1.30f, 0.12f, 2.45f});
+    drawRoad({0.0f, 0.04f, 9.9f}, {10.5f, 0.12f, 1.35f});
+    drawRoad({-4.8f, 0.04f, 9.2f}, {1.30f, 0.12f, 2.45f});
+    drawRoad({4.8f, 0.04f, 9.2f}, {1.30f, 0.12f, 2.45f});
+    drawRoad({0.0f, 0.04f, 12.3f}, {1.50f, 0.12f, 3.4f});
+
+    drawCentralPlaza();
+    drawPixelStatue();
+    drawBuilding({-4.8f, 0.0f, -7.3f}, kPanelTop, kHouseRoof,
+                 "COMMAND", "STORY");
+    drawBuilding({4.8f, 0.0f, -7.3f}, kPanelBottom, kPistolMetal,
+                 "TRAINING", "TRIALS");
+    drawBuilding({-4.8f, 0.0f, 4.3f}, kHouseWall, kButtonExit, "SHOP",
+                 "BUY");
+    drawBuilding({4.8f, 0.0f, 4.3f}, kPanelBottom, kPortalFrame,
+                 "WORKSHOP", "CRAFT");
+    drawBuilding({-4.8f, 0.0f, 8.7f}, kPanelTop, kSunRay, "CAFE",
+                 "HEAL");
+    drawBuilding({4.8f, 0.0f, 8.7f}, kSkyBottom, kPistolMetal,
+                 "ARCHIVE", "COLLECT");
+    drawDungeonPortal();
 
     drawCloud({-7.5f, 7.2f, -10.0f}, 1.0f);
     drawCloud({6.5f, 8.3f, -18.0f}, 1.25f);
     drawCloud({12.0f, 6.4f, 1.0f}, 0.8f);
 
-    drawTree({-8.5f, 0.0f, -4.5f});
-    drawTree({-3.5f, 0.0f, -8.0f});
-    drawTree({2.0f, 0.0f, -4.0f});
-    drawTree({6.5f, 0.0f, -1.5f});
-    drawTree({-7.0f, 0.0f, 4.0f});
+    drawTree({-9.5f, 0.0f, -10.5f});
+    drawTree({9.5f, 0.0f, -10.5f});
+    drawTree({-9.5f, 0.0f, -3.0f});
+    drawTree({9.5f, 0.0f, -3.0f});
+    drawTree({-9.5f, 0.0f, 5.0f});
+    drawTree({9.5f, 0.0f, 5.0f});
+    drawTree({-9.5f, 0.0f, 11.5f});
+    drawTree({9.5f, 0.0f, 11.5f});
 
-    drawRock({-9.5f, 0.0f, 2.5f}, 1.0f);
-    drawRock({-1.0f, 0.0f, 6.0f}, 1.2f);
-    drawRock({8.0f, 0.0f, 5.0f}, 0.9f);
+    drawRock({-11.0f, 0.0f, 1.5f}, 1.0f);
+    drawRock({11.0f, 0.0f, 1.5f}, 1.1f);
+    drawRock({-10.5f, 0.0f, 13.0f}, 0.9f);
+    drawRock({10.5f, 0.0f, 13.0f}, 0.9f);
 
     character_.render();
     character_.renderHealthBar();
-
-    for (int i = -2; i <= 2; ++i) {
-        ThreeDUtils::drawCube(
-            {static_cast<float>(i) * 1.2f,
-             0.18f + 0.2f * std::abs(i), 8.5f + i * 0.35f},
-            {0.7f, 0.6f, 0.7f},
-            ThreeDUtils::shade(kStoneColor, 0.85f + 0.03f * i));
-    }
 }
 
 void MainScene::renderExitPrompt() const {
@@ -604,13 +645,10 @@ void MainScene::drawSun(const Vec3& cameraPosition) const {
 }
 
 void MainScene::drawGround() const {
-    for (int z = -12; z <= 12; ++z) {
-        for (int x = -12; x <= 12; ++x) {
+    for (int z = -21; z <= 21; ++z) {
+        for (int x = -21; x <= 21; ++x) {
             Color color = ((x + z) & 1) == 0 ? kGrassA : kGrassB;
-            if (std::abs(x) <= 1 && z < 10) {
-                color = ((x + z) & 1) == 0 ? kPathColor : kPathDark;
-            }
-            if (z == 11 || z == 12) {
+            if (std::abs(x) >= 20 || std::abs(z) >= 20) {
                 color = ((x + z) & 1) == 0
                             ? kWaterColor
                             : ThreeDUtils::shade(kWaterColor, 0.8f);
@@ -618,7 +656,7 @@ void MainScene::drawGround() const {
             ThreeDUtils::drawCube({static_cast<float>(x), -0.09f,
                                    static_cast<float>(z)},
                                   {0.98f, 0.18f, 0.98f}, color);
-            if (z >= 11 && (x + z) % 3 == 0) {
+            if (std::abs(x) >= 13 || std::abs(z) >= 14) {
                 ThreeDUtils::drawCube(
                     {static_cast<float>(x) - 0.12f, 0.025f,
                      static_cast<float>(z) - 0.05f},
@@ -629,56 +667,200 @@ void MainScene::drawGround() const {
 }
 
 void MainScene::drawTree(const Vec3& base) const {
-    ThreeDUtils::drawCube({base.x, base.y + 0.55f, base.z},
-                          {0.5f, 1.2f, 0.5f}, kTrunkColor);
-    ThreeDUtils::drawCube({base.x, base.y + 1.45f, base.z},
-                          {1.7f, 1.0f, 1.7f}, kLeafDarkColor);
-    ThreeDUtils::drawCube({base.x, base.y + 2.15f, base.z},
-                          {1.3f, 0.9f, 1.3f}, kLeafColor);
-    ThreeDUtils::drawCube({base.x, base.y + 2.80f, base.z},
-                          {0.9f, 0.8f, 0.9f}, kLeafDarkColor);
-    ThreeDUtils::drawCube({base.x - 0.56f, base.y + 1.72f, base.z + 0.12f},
-                          {0.40f, 0.34f, 0.40f}, kLeafColor);
-    ThreeDUtils::drawCube({base.x + 0.54f, base.y + 2.18f, base.z - 0.08f},
-                          {0.34f, 0.34f, 0.34f}, kLeafDarkColor);
-    ThreeDUtils::drawCube({base.x - 0.22f, base.y + 2.38f, base.z + 0.48f},
-                          {0.16f, 0.16f, 0.16f}, kSunCore);
+    const float x = base.x * kMapScale;
+    const float z = base.z * kMapScale;
+    const float s = kDecorationScale;
+    ThreeDUtils::drawCube({x, base.y + 0.55f * s, z},
+                          {0.5f * s, 1.2f * s, 0.5f * s}, kTrunkColor);
+    ThreeDUtils::drawCube({x, base.y + 1.45f * s, z},
+                          {1.7f * s, 1.0f * s, 1.7f * s}, kLeafDarkColor);
+    ThreeDUtils::drawCube({x, base.y + 2.15f * s, z},
+                          {1.3f * s, 0.9f * s, 1.3f * s}, kLeafColor);
+    ThreeDUtils::drawCube({x, base.y + 2.80f * s, z},
+                          {0.9f * s, 0.8f * s, 0.9f * s}, kLeafDarkColor);
+    ThreeDUtils::drawCube({x - 0.56f * s, base.y + 1.72f * s,
+                           z + 0.12f * s},
+                          {0.40f * s, 0.34f * s, 0.40f * s}, kLeafColor);
+    ThreeDUtils::drawCube({x + 0.54f * s, base.y + 2.18f * s,
+                           z - 0.08f * s},
+                          {0.34f * s, 0.34f * s, 0.34f * s}, kLeafDarkColor);
+    ThreeDUtils::drawCube({x - 0.22f * s, base.y + 2.38f * s,
+                           z + 0.48f * s},
+                          {0.16f * s, 0.16f * s, 0.16f * s}, kSunCore);
 }
 
 void MainScene::drawRock(const Vec3& base, float scale) const {
+    const float x = base.x * kMapScale;
+    const float z = base.z * kMapScale;
+    const float s = scale * kDecorationScale;
     ThreeDUtils::drawCube(
-        {base.x, base.y + 0.22f * scale, base.z},
-        {0.7f * scale, 0.45f * scale, 0.8f * scale}, kStoneColor);
+        {x, base.y + 0.22f * s, z},
+        {0.7f * s, 0.45f * s, 0.8f * s}, kStoneColor);
     ThreeDUtils::drawCube(
-        {base.x + 0.12f * scale, base.y + 0.40f * scale,
-         base.z - 0.08f * scale},
-        {0.45f * scale, 0.25f * scale, 0.35f * scale}, kStoneDark);
+        {x + 0.12f * s, base.y + 0.40f * s, z - 0.08f * s},
+        {0.45f * s, 0.25f * s, 0.35f * s}, kStoneDark);
 }
 
-void MainScene::drawHouse(const Vec3& base) const {
-    ThreeDUtils::drawCube({base.x, base.y + 0.85f, base.z},
-                          {2.4f, 1.7f, 2.0f}, kHouseWall);
-    ThreeDUtils::drawCube({base.x, base.y + 2.05f, base.z},
-                          {2.8f, 0.7f, 2.4f}, kHouseRoof);
-    ThreeDUtils::drawCube({base.x, base.y + 2.35f, base.z},
-                          {1.2f, 0.5f, 1.2f}, kHouseRoofDark);
-    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
-                           base.z + 1.01f},
-                          {0.38f, 0.72f, 0.08f}, kHouseWindow);
-    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
-                           base.z + 1.06f},
-                          {0.18f, 0.58f, 0.025f}, kHouseWindowLight);
-    ThreeDUtils::drawCube({base.x - 0.55f, base.y + 0.78f,
-                           base.z + 1.07f},
-                          {0.36f, 0.08f, 0.025f}, kHouseTrim);
-    ThreeDUtils::drawCube({base.x + 0.58f, base.y + 0.63f,
-                           base.z + 1.01f},
-                          {0.48f, 0.92f, 0.08f}, kHouseDoor);
-    ThreeDUtils::drawCube({base.x + 0.74f, base.y + 0.66f,
-                           base.z + 1.07f},
+void MainScene::drawRoad(const Vec3& center, const Vec3& size) const {
+    const Vec3 scaledCenter{center.x * kMapScale, center.y,
+                            center.z * kMapScale};
+    const Vec3 scaledSize{size.x * kMapScale, size.y, size.z * kMapScale};
+    ThreeDUtils::drawCube(
+        {scaledCenter.x, scaledCenter.y - 0.01f, scaledCenter.z},
+        {scaledSize.x + 0.16f, scaledSize.y + 0.04f,
+         scaledSize.z + 0.16f},
+        kPathDark);
+    ThreeDUtils::drawCube(scaledCenter, scaledSize, kPathColor);
+    if (scaledSize.x > scaledSize.z) {
+        ThreeDUtils::drawCube(
+            {scaledCenter.x, scaledCenter.y + scaledSize.y * 0.56f,
+             scaledCenter.z - scaledSize.z * 0.16f},
+            {scaledSize.x * 0.72f, scaledSize.y * 0.14f,
+             scaledSize.z * 0.10f},
+            kPlazaTrim);
+    } else {
+        ThreeDUtils::drawCube(
+            {scaledCenter.x + scaledSize.x * 0.16f,
+             scaledCenter.y + scaledSize.y * 0.56f, scaledCenter.z},
+            {scaledSize.x * 0.10f, scaledSize.y * 0.14f,
+             scaledSize.z * 0.72f},
+            kPlazaTrim);
+    }
+}
+
+void MainScene::drawBuilding(const Vec3& base, const Color& wallColor,
+                             const Color& roofColor, const char* label,
+                             const char* subtitle) const {
+    const float x = base.x * kMapScale;
+    const float z = base.z * kMapScale;
+    const float sx = kBuildingScale;
+    const float sy = kBuildingHeightScale;
+    const float front = 1.0f;
+
+    ThreeDUtils::drawCube({x, base.y + 0.85f * sy, z},
+                          {3.45f * sx, 1.7f * sy, 2.35f * sx}, wallColor);
+    ThreeDUtils::drawCube({x, base.y + 2.05f * sy, z},
+                          {3.85f * sx, 0.7f * sy, 2.75f * sx}, roofColor);
+    ThreeDUtils::drawCube({x, base.y + 2.35f * sy, z},
+                          {1.75f * sx, 0.5f * sy, 1.55f * sx},
+                          ThreeDUtils::shade(roofColor, 0.72f));
+    ThreeDUtils::drawCube({x, base.y + 1.72f * sy, z + 1.21f * sx * front},
+                          {2.85f * sx, 0.12f * sy, 0.08f * sx}, kHouseTrim);
+    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
+                           z + 1.01f * sx * front},
+                          {0.56f * sx, 0.58f * sy, 0.08f * sx},
+                          kHouseWindow);
+    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
+                           z + 1.06f * sx * front},
+                          {0.20f * sx, 0.45f * sy, 0.025f * sx},
+                          kHouseWindowLight);
+    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
+                           z + 1.07f * sx * front},
+                          {0.52f * sx, 0.07f * sy, 0.025f * sx}, kHouseTrim);
+    ThreeDUtils::drawCube({x + 0.90f * sx, base.y + 0.63f * sy,
+                           z + 1.01f * sx * front},
+                          {0.56f * sx, 0.92f * sy, 0.08f * sx}, kHouseDoor);
+    ThreeDUtils::drawCube({x + 1.08f * sx, base.y + 0.66f * sy,
+                           z + 1.07f * sx * front},
                           {0.07f, 0.07f, 0.04f}, kHouseDoorKnob);
-    ThreeDUtils::drawCube({base.x, base.y + 1.75f, base.z + 1.03f},
-                          {1.90f, 0.12f, 0.08f}, kHouseTrim);
+    ThreeDUtils::drawCube({x, base.y + 1.22f * sy, z + 1.24f * sx * front},
+                          {3.0f * sx, 0.76f * sy, 0.08f * sx}, kSignColor);
+    drawWorldLabel(label, {x, base.y + 1.28f * sy,
+                           z + 1.30f * sx * front},
+                   0.050f, kInkColor);
+    drawWorldLabel(subtitle, {x, base.y + 0.91f * sy,
+                              z + 1.30f * sx * front},
+                   0.035f, ThreeDUtils::shade(kInkColor, 1.15f));
+}
+
+void MainScene::drawCentralPlaza() const {
+    const float sx = kMapScale;
+    ThreeDUtils::drawCube({0.0f, 0.12f, 0.0f},
+                          {5.8f * sx, 0.26f, 4.1f * sx}, kPlazaColor);
+    ThreeDUtils::drawCube({0.0f, 0.27f, 0.0f},
+                          {5.25f * sx, 0.08f, 3.55f * sx}, kPlazaTrim);
+    ThreeDUtils::drawCube({0.0f, 0.33f, 0.0f},
+                          {4.85f * sx, 0.08f, 3.15f * sx}, kPlazaColor);
+    ThreeDUtils::drawCube({0.0f, 0.39f, 0.0f},
+                          {2.10f * sx, 0.06f, 2.10f * sx}, kHouseWindow);
+    drawWorldLabel("PLAZA", {0.0f, 0.46f, 1.0f * sx}, 0.060f, kInkColor);
+}
+
+void MainScene::drawPixelStatue() const {
+    const float sx = kMapScale;
+    const float sy = kBuildingHeightScale;
+    const float z = -0.35f * sx;
+    ThreeDUtils::drawCube({0.0f, 0.50f * sy, z},
+                          {1.85f * sx, 0.45f * sy, 1.85f * sx}, kStoneDark);
+    ThreeDUtils::drawCube({0.0f, 0.78f * sy, z},
+                          {1.55f * sx, 0.12f * sy, 1.55f * sx}, kPlazaTrim);
+    ThreeDUtils::drawCube({0.0f, 1.35f * sy, z},
+                          {0.85f * sx, 1.05f * sy, 0.62f * sx}, kStatueColor);
+    ThreeDUtils::drawCube({0.0f, 2.05f * sy, z},
+                          {0.95f * sx, 0.78f * sy, 0.82f * sx},
+                          kCharacterSkin);
+    ThreeDUtils::drawCube({0.0f, 2.42f * sy, z},
+                          {1.02f * sx, 0.30f * sy, 0.90f * sx},
+                          kCharacterHair);
+    ThreeDUtils::drawCube({-0.68f * sx, 1.38f * sy, z},
+                          {0.30f * sx, 0.90f * sy, 0.34f * sx},
+                          kStatueColor);
+    ThreeDUtils::drawCube({0.68f * sx, 1.38f * sy, z},
+                          {0.30f * sx, 0.90f * sy, 0.34f * sx},
+                          kStatueColor);
+    ThreeDUtils::drawCube({-0.22f * sx, 0.98f * sy, z},
+                          {0.32f * sx, 0.75f * sy, 0.40f * sx},
+                          kStatueAccent);
+    ThreeDUtils::drawCube({0.22f * sx, 0.98f * sy, z},
+                          {0.32f * sx, 0.75f * sy, 0.40f * sx},
+                          kStatueAccent);
+    ThreeDUtils::drawCube({-0.18f * sx, 2.08f * sy, 0.08f * sx},
+                          {0.20f * sx, 0.16f * sy, 0.08f * sx},
+                          kCharacterEyeWhite);
+    ThreeDUtils::drawCube({0.18f * sx, 2.08f * sy, 0.08f * sx},
+                          {0.20f * sx, 0.16f * sy, 0.08f * sx},
+                          kCharacterEyeWhite);
+    ThreeDUtils::drawCube({-0.18f * sx, 2.08f * sy, 0.13f * sx},
+                          {0.08f * sx, 0.10f * sy, 0.05f * sx},
+                          kCharacterEye);
+    ThreeDUtils::drawCube({0.18f * sx, 2.08f * sy, 0.13f * sx},
+                          {0.08f * sx, 0.10f * sy, 0.05f * sx},
+                          kCharacterEye);
+}
+
+void MainScene::drawDungeonPortal() const {
+    const float sx = kMapScale;
+    const float sy = kBuildingHeightScale;
+    const float portalZ = 12.4f * sx;
+    ThreeDUtils::drawCube({0.0f, 0.12f, portalZ},
+                          {3.7f * sx, 0.24f, 2.8f * sx}, kPortalFrame);
+    ThreeDUtils::drawCube({0.0f, 0.25f, portalZ},
+                          {3.25f * sx, 0.08f, 2.35f * sx}, kPlazaTrim);
+    ThreeDUtils::drawCube({-1.18f * sx, 1.45f * sy, portalZ},
+                          {0.48f * sx, 2.75f * sy, 0.50f * sx},
+                          kPortalFrame);
+    ThreeDUtils::drawCube({1.18f * sx, 1.45f * sy, portalZ},
+                          {0.48f * sx, 2.75f * sy, 0.50f * sx},
+                          kPortalFrame);
+    ThreeDUtils::drawCube({0.0f, 2.78f * sy, portalZ},
+                          {2.85f * sx, 0.48f * sy, 0.50f * sx},
+                          kPortalFrame);
+    ThreeDUtils::drawCube({0.0f, 1.45f * sy, portalZ + 0.28f * sx},
+                          {1.82f * sx, 2.20f * sy, 0.08f * sx},
+                          kPortalGlow);
+    ThreeDUtils::drawCube({0.0f, 1.45f * sy, portalZ + 0.34f * sx},
+                          {1.38f * sx, 1.78f * sy, 0.06f * sx}, kInkColor);
+    ThreeDUtils::drawCube({0.0f, 1.45f * sy, portalZ + 0.39f * sx},
+                          {1.08f * sx, 1.48f * sy, 0.04f * sx},
+                          kPortalGlow);
+    ThreeDUtils::drawCube({0.0f, 3.32f * sy, portalZ + 0.28f * sx},
+                          {2.75f * sx, 0.78f * sy, 0.08f * sx}, kSignColor);
+    drawWorldLabel("DUNGEON",
+                   {0.0f, 3.39f * sy, portalZ + 0.34f * sx}, 0.050f,
+                   kInkColor);
+    drawWorldLabel("ENTER",
+                   {0.0f, 0.78f * sy, portalZ + 0.34f * sx}, 0.045f,
+                   kSignColor);
 }
 
 void MainScene::drawCloud(const Vec3& base, float scale) const {
