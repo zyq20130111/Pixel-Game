@@ -133,7 +133,6 @@ MainScene::MainScene()
       bigHeadSon_(),
       police_(),
       policeCrouched_(),
-      policeProne_(),
       pistol_(),
       loginScreen_(),
       bullets_(),
@@ -148,9 +147,6 @@ MainScene::MainScene()
     policeCrouched_.setPosition({4.8f, 0.0f, 0.6f});
     policeCrouched_.setCrouched(true);
     policeCrouched_.setMoving(false);
-    policeProne_.setPosition({6.6f, 0.0f, 0.6f});
-    policeProne_.setProne(true);
-    policeProne_.setMoving(false);
 }
 
 MainScene::~MainScene() {
@@ -275,10 +271,6 @@ void MainScene::resetGame() {
     policeCrouched_.setPosition({4.8f, 0.0f, 0.6f});
     policeCrouched_.setCrouched(true);
     policeCrouched_.setMoving(false);
-    policeProne_.reset();
-    policeProne_.setPosition({6.6f, 0.0f, 0.6f});
-    policeProne_.setProne(true);
-    policeProne_.setMoving(false);
     pistol_.reset();
     bullets_.clear();
     impactEffects_.clear();
@@ -335,7 +327,6 @@ void MainScene::updateGameplay(float dt) {
     bigHeadSon_.update(dt);
     police_.update(dt);
     policeCrouched_.update(dt);
-    policeProne_.update(dt);
     pistol_.update(window_, camera_, bullets_, previousFireDown_, dt);
     updateImpactEffects(dt);
     updateBullets(dt);
@@ -467,7 +458,6 @@ void MainScene::renderScene() const {
     bigHeadSon_.render();
     police_.render();
     policeCrouched_.render();
-    policeProne_.render();
 }
 
 void MainScene::renderExitPrompt() const {
