@@ -347,7 +347,7 @@ makeAnimationClips() {
 
     Pose attack0 = base;
     Pose attack1 = base;
-    setPoseBone(attack1, kRootBone, {0.0f, 0.025f, -0.02f}, {});
+    setPoseBone(attack1, kRootBone, {}, {});
     setPoseBone(attack1, kTorsoBone, {0.0f, 1.43f, 0.0f},
                 {-4.0f, 0.0f, -3.0f});
     setPoseBone(attack1, kHeadBone, {0.0f, 1.22f, 0.0f},
@@ -359,7 +359,7 @@ makeAnimationClips() {
     setPoseBone(attack1, kRightLowerArmBone, {0.0f, -0.66f, -0.08f},
                 {22.0f, 0.0f, 0.0f});
     Pose attack2 = attack1;
-    setPoseBone(attack2, kRootBone, {0.0f, 0.045f, -0.055f}, {});
+    setPoseBone(attack2, kRootBone, {}, {});
     setPoseBone(attack2, kTorsoBone, {0.0f, 1.45f, 0.0f},
                 {-9.0f, 0.0f, -6.0f});
     setPoseBone(attack2, kHeadBone, {0.0f, 1.20f, 0.0f},
@@ -371,7 +371,7 @@ makeAnimationClips() {
     setPoseBone(attack2, kRightLowerArmBone, {0.0f, -0.60f, -0.12f},
                 {45.0f, 0.0f, 0.0f});
     Pose attack3 = attack2;
-    setPoseBone(attack3, kRootBone, {0.0f, 0.012f, -0.02f}, {});
+    setPoseBone(attack3, kRootBone, {}, {});
     setPoseBone(attack3, kTorsoBone, {0.0f, 1.42f, 0.0f},
                 {5.0f, 0.0f, 4.0f});
     setPoseBone(attack3, kHeadBone, {0.0f, 1.22f, 0.0f},
@@ -713,19 +713,37 @@ struct PoliceModel::Impl {
         Pose pose{};
         sampleAnimation(animations[static_cast<std::size_t>(animation)], time,
                         pose);
+        const bool attackUsesFixedLowerBody = animation == AnimationId::Attack;
+        const Pose basePose =
+            attackUsesFixedLowerBody ? makeBasePose() : Pose{};
         for (std::size_t i = 0; i < kBoneCount; ++i) {
             bones[i].localPosition = pose[i].position;
             bones[i].localRotationDegrees = pose[i].rotationDegrees;
         }
         for (std::size_t i = 0; i < kBoneCount; ++i) {
+            const bool isUpperLegBone =
+                i == kLeftUpperLegBone || i == kRightUpperLegBone;
+            const bool isFixedLowerBodyBone =
+                attackUsesFixedLowerBody &&
+                (isUpperLegBone || i == kLeftLowerLegBone ||
+                 i == kRightLowerLegBone);
+            int parent = bones[i].parent;
+            Vec3 localPosition = bones[i].localPosition;
+            if (isFixedLowerBodyBone) {
+                parent = i == kLeftUpperLegBone || i == kRightUpperLegBone
+                             ? kRootBone
+                             : bones[i].parent;
+            }
+            if (attackUsesFixedLowerBody && isUpperLegBone) {
+                localPosition = localPosition + basePose[kTorsoBone].position;
+            }
             const Matrix4 local = boneLocalMatrix(
-                bones[i].localPosition, bones[i].localRotationDegrees);
+                localPosition, bones[i].localRotationDegrees);
             bones[i].worldMatrix =
-                bones[i].parent < 0
+                parent < 0
                     ? local
                     : multiply(
-                          bones[static_cast<std::size_t>(bones[i].parent)]
-                              .worldMatrix,
+                          bones[static_cast<std::size_t>(parent)].worldMatrix,
                           local);
         }
     }
