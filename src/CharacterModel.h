@@ -34,6 +34,8 @@ private:
     int hp_;
     bool alive_;
     float deathTimer_;
+    bool crouched_;
+    bool prone_;
 };
 
 }  // namespace pixel_world

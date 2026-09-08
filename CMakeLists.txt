@@ -28,6 +28,7 @@ add_executable(
     src/BigHeadSonModel.cpp
     src/PoliceModel.cpp
     src/CharacterModelBase.cpp
+    src/CharacterModel.cpp
     src/LowPolyCharacterModel.cpp
     src/PistolBullet.cpp
     src/BulletBase.cpp

@@ -21,6 +21,8 @@ void CharacterModel::reset() {
     hp_ = constants::kCharacterMaxHp;
     alive_ = true;
     deathTimer_ = 0.0f;
+    crouched_ = false;
+    prone_ = false;
 }
 
 void CharacterModel::update(GLFWwindow* window, float dt) {
@@ -30,6 +32,9 @@ void CharacterModel::update(GLFWwindow* window, float dt) {
         walkPhase_ = 0.0f;
         return;
     }
+
+    prone_ = glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS;
+    crouched_ = !prone_ && glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS;
 
     Vec3 direction{};
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
@@ -48,11 +53,19 @@ void CharacterModel::update(GLFWwindow* window, float dt) {
     const bool manuallyControlled = ThreeDUtils::length(direction) > 0.0f;
     if (manuallyControlled) {
         direction = ThreeDUtils::normalize(direction);
+    } else if (crouched_ || prone_) {
+        direction = {};
     } else {
         direction = {0.0f, 0.0f, patrolDirection_};
     }
 
-    position_ = position_ + direction * (constants::kCharacterMoveSpeed * dt);
+    const float stanceSpeedMultiplier =
+        prone_ ? constants::kCharacterProneSpeedMultiplier
+                : (crouched_ ? constants::kCharacterCrouchSpeedMultiplier
+                             : 1.0f);
+    position_ = position_ +
+                direction * (constants::kCharacterMoveSpeed *
+                             stanceSpeedMultiplier * dt);
     position_.x = std::clamp(position_.x, constants::kCharacterPathMinX,
                              constants::kCharacterPathMaxX);
     position_.z = std::clamp(position_.z, constants::kCharacterPathMinZ,
@@ -74,9 +87,16 @@ void CharacterModel::update(GLFWwindow* window, float dt) {
         yawDegrees_ = 0.0f;
     }
 
-    walkPhase_ = std::fmod(
-        walkPhase_ + dt * constants::kCharacterWalkCycleSpeed,
-        2.0f * constants::kPi);
+    const float stanceCycleMultiplier =
+        prone_ ? constants::kCharacterProneCycleMultiplier
+                : (crouched_ ? constants::kCharacterCrouchCycleMultiplier
+                             : 1.0f);
+    const float cycleSpeed =
+        manuallyControlled ? constants::kCharacterWalkCycleSpeed *
+                                 stanceCycleMultiplier
+                           : 1.5f * stanceCycleMultiplier;
+    walkPhase_ =
+        std::fmod(walkPhase_ + dt * cycleSpeed, 2.0f * constants::kPi);
 }
 
 void CharacterModel::render() const {
@@ -91,19 +111,34 @@ void CharacterModel::render() const {
     if (!alive_) {
         glTranslatef(0.0f, 0.0f, -0.16f * deathProgress);
         glRotatef(-86.0f * deathProgress, 1.0f, 0.0f, 0.0f);
+    } else if (prone_) {
+        glTranslatef(0.0f, -0.70f, 0.48f);
+        glRotatef(78.0f, 1.0f, 0.0f, 0.0f);
+    } else if (crouched_) {
+        glTranslatef(0.0f, -0.34f, 0.05f);
+        glRotatef(-13.0f, 1.0f, 0.0f, 0.0f);
     }
     glScalef(constants::kCharacterScale, constants::kCharacterScale,
              constants::kCharacterScale);
 
-    const float walkSwing = std::sin(walkPhase_) * 18.0f;
+    const float gaitSwing =
+        std::sin(walkPhase_) * (prone_ ? 7.0f : (crouched_ ? 12.0f : 18.0f));
     const float leftLegSwing =
-        alive_ ? walkSwing : -8.0f * deathProgress;
+        !alive_ ? -8.0f * deathProgress
+                : (prone_ ? 84.0f + gaitSwing
+                          : (crouched_ ? -64.0f + gaitSwing : gaitSwing));
     const float rightLegSwing =
-        alive_ ? -walkSwing : 8.0f * deathProgress;
+        !alive_ ? 8.0f * deathProgress
+                : (prone_ ? 84.0f - gaitSwing
+                          : (crouched_ ? -64.0f - gaitSwing : -gaitSwing));
     const float leftArmSwing =
-        alive_ ? -walkSwing : -70.0f * deathProgress;
+        !alive_ ? -70.0f * deathProgress
+                : (prone_ ? 68.0f - gaitSwing
+                          : (crouched_ ? -20.0f - gaitSwing : -gaitSwing));
     const float rightArmSwing =
-        alive_ ? walkSwing : -55.0f * deathProgress;
+        !alive_ ? -55.0f * deathProgress
+                : (prone_ ? 68.0f + gaitSwing
+                          : (crouched_ ? -20.0f + gaitSwing : gaitSwing));
 
     ThreeDUtils::drawPivotedCube({-0.20f, 1.55f, 0.05f}, {0.0f, -0.47f, 0.0f},
                                  {0.38f, 0.95f, 0.38f}, leftLegSwing,

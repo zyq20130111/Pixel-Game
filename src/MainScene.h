@@ -67,6 +67,8 @@ private:
     LowPolyCharacterModel character_;
     BigHeadSonModel bigHeadSon_;
     PoliceModel police_;
+    PoliceModel policeCrouched_;
+    PoliceModel policeProne_;
     Pistol pistol_;
     LoginScreen loginScreen_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;
