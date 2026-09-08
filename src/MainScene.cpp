@@ -18,7 +18,6 @@ namespace {
 using namespace constants;
 
 constexpr float kMapScale = 1.45f;
-constexpr float kBuildingScale = 1.55f;
 constexpr float kBuildingHeightScale = 1.35f;
 constexpr float kDecorationScale = 1.25f;
 
@@ -131,6 +130,8 @@ MainScene::MainScene()
       camera_(),
       menuCamera_({0.0f, kCameraGroundHeight, 17.5f}),
       character_(),
+      bigHeadSon_(),
+      police_(),
       pistol_(),
       loginScreen_(),
       bullets_(),
@@ -256,6 +257,8 @@ bool MainScene::initialize() {
 void MainScene::resetGame() {
     camera_.reset();
     character_.reset();
+    bigHeadSon_.reset();
+    police_.reset();
     pistol_.reset();
     bullets_.clear();
     impactEffects_.clear();
@@ -304,6 +307,8 @@ void MainScene::updateGameplay(float dt) {
     camera_.update(window_, dt, previousJumpDown_);
     camera_.updateAim(window_, dt);
     character_.update(window_, dt);
+    bigHeadSon_.update(dt);
+    police_.update(dt);
     pistol_.update(window_, camera_, bullets_, previousFireDown_, dt);
     updateImpactEffects(dt);
     updateBullets(dt);
@@ -409,19 +414,7 @@ void MainScene::renderScene() const {
     drawRoad({0.0f, 0.04f, 12.3f}, {1.50f, 0.12f, 3.4f});
 
     drawCentralPlaza();
-    drawPixelStatue();
-    drawBuilding({-4.8f, 0.0f, -7.3f}, kPanelTop, kHouseRoof,
-                 "COMMAND", "STORY");
-    drawBuilding({4.8f, 0.0f, -7.3f}, kPanelBottom, kPistolMetal,
-                 "TRAINING", "TRIALS");
-    drawBuilding({-4.8f, 0.0f, 4.3f}, kHouseWall, kButtonExit, "SHOP",
-                 "BUY");
-    drawBuilding({4.8f, 0.0f, 4.3f}, kPanelBottom, kPortalFrame,
-                 "WORKSHOP", "CRAFT");
-    drawBuilding({-4.8f, 0.0f, 8.7f}, kPanelTop, kSunRay, "CAFE",
-                 "HEAL");
-    drawBuilding({4.8f, 0.0f, 8.7f}, kSkyBottom, kPistolMetal,
-                 "ARCHIVE", "COLLECT");
+    //drawPixelStatue();
     drawDungeonPortal();
 
     drawCloud({-7.5f, 7.2f, -10.0f}, 1.0f);
@@ -444,6 +437,8 @@ void MainScene::renderScene() const {
 
     character_.render();
     character_.renderHealthBar();
+    bigHeadSon_.render();
+    police_.render();
 }
 
 void MainScene::renderExitPrompt() const {
@@ -728,51 +723,6 @@ void MainScene::drawRoad(const Vec3& center, const Vec3& size) const {
     }
 }
 
-void MainScene::drawBuilding(const Vec3& base, const Color& wallColor,
-                             const Color& roofColor, const char* label,
-                             const char* subtitle) const {
-    const float x = base.x * kMapScale;
-    const float z = base.z * kMapScale;
-    const float sx = kBuildingScale;
-    const float sy = kBuildingHeightScale;
-    const float front = 1.0f;
-
-    ThreeDUtils::drawCube({x, base.y + 0.85f * sy, z},
-                          {3.45f * sx, 1.7f * sy, 2.35f * sx}, wallColor);
-    ThreeDUtils::drawCube({x, base.y + 2.05f * sy, z},
-                          {3.85f * sx, 0.7f * sy, 2.75f * sx}, roofColor);
-    ThreeDUtils::drawCube({x, base.y + 2.35f * sy, z},
-                          {1.75f * sx, 0.5f * sy, 1.55f * sx},
-                          ThreeDUtils::shade(roofColor, 0.72f));
-    ThreeDUtils::drawCube({x, base.y + 1.72f * sy, z + 1.21f * sx * front},
-                          {2.85f * sx, 0.12f * sy, 0.08f * sx}, kHouseTrim);
-    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
-                           z + 1.01f * sx * front},
-                          {0.56f * sx, 0.58f * sy, 0.08f * sx},
-                          kHouseWindow);
-    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
-                           z + 1.06f * sx * front},
-                          {0.20f * sx, 0.45f * sy, 0.025f * sx},
-                          kHouseWindowLight);
-    ThreeDUtils::drawCube({x - 0.55f * sx, base.y + 0.78f * sy,
-                           z + 1.07f * sx * front},
-                          {0.52f * sx, 0.07f * sy, 0.025f * sx}, kHouseTrim);
-    ThreeDUtils::drawCube({x + 0.90f * sx, base.y + 0.63f * sy,
-                           z + 1.01f * sx * front},
-                          {0.56f * sx, 0.92f * sy, 0.08f * sx}, kHouseDoor);
-    ThreeDUtils::drawCube({x + 1.08f * sx, base.y + 0.66f * sy,
-                           z + 1.07f * sx * front},
-                          {0.07f, 0.07f, 0.04f}, kHouseDoorKnob);
-    ThreeDUtils::drawCube({x, base.y + 1.22f * sy, z + 1.24f * sx * front},
-                          {3.0f * sx, 0.76f * sy, 0.08f * sx}, kSignColor);
-    drawWorldLabel(label, {x, base.y + 1.28f * sy,
-                           z + 1.30f * sx * front},
-                   0.050f, kInkColor);
-    drawWorldLabel(subtitle, {x, base.y + 0.91f * sy,
-                              z + 1.30f * sx * front},
-                   0.035f, ThreeDUtils::shade(kInkColor, 1.15f));
-}
-
 void MainScene::drawCentralPlaza() const {
     const float sx = kMapScale;
     ThreeDUtils::drawCube({0.0f, 0.12f, 0.0f},
@@ -974,7 +924,7 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state) {
     const std::string title =
         state == AppState::MainMenu
             ? "Pixel World 3D | Main Menu"
-            : "Pixel World 3D | LMB fire | RMB aim | Shift run | Space jump | Arrows walk | WASD camera | Esc exit";
+            : "Pixel World 3D | LMB fire | RMB aim | E attack | Shift run | Space jump | Arrows walk | WASD camera | Esc exit";
     if (title == lastTitle) {
         return;
     }

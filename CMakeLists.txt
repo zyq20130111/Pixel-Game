@@ -25,8 +25,10 @@ add_executable(
     src/ThreeDUtils.cpp
     src/Camera.cpp
     src/SceneBase.cpp
-    src/CharacterModel.cpp
+    src/BigHeadSonModel.cpp
+    src/PoliceModel.cpp
     src/CharacterModelBase.cpp
+    src/LowPolyCharacterModel.cpp
     src/PistolBullet.cpp
     src/BulletBase.cpp
     src/Pistol.cpp

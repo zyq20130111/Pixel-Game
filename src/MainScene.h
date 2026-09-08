@@ -1,9 +1,11 @@
 #pragma once
 
 #include "PistolBullet.h"
+#include "BigHeadSonModel.h"
 #include "Camera.h"
-#include "CharacterModel.h"
+#include "LowPolyCharacterModel.h"
 #include "LoginScreen.h"
+#include "PoliceModel.h"
 #include "platform.h"
 #include "SceneBase.h"
 #include "types.h"
@@ -41,9 +43,6 @@ private:
     void drawRock(const Vec3& base, float scale) const;
     void drawCloud(const Vec3& base, float scale) const;
     void drawRoad(const Vec3& center, const Vec3& size) const;
-    void drawBuilding(const Vec3& base, const Color& wallColor,
-                      const Color& roofColor, const char* label,
-                      const char* subtitle) const;
     void drawCentralPlaza() const;
     void drawPixelStatue() const;
     void drawDungeonPortal() const;
@@ -65,7 +64,9 @@ private:
 
     Camera camera_;
     Camera menuCamera_;
-    CharacterModel character_;
+    LowPolyCharacterModel character_;
+    BigHeadSonModel bigHeadSon_;
+    PoliceModel police_;
     Pistol pistol_;
     LoginScreen loginScreen_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;
