@@ -112,18 +112,46 @@ Vec3 ThreeDUtils::cameraForward() {
     return normalize({0.0f, -0.22f, -1.0f});
 }
 
+Vec3 ThreeDUtils::cameraForward(float yawDegrees, float pitchDegrees) {
+    const float yawRadians = yawDegrees * constants::kPi / 180.0f;
+    const float pitchRadians = pitchDegrees * constants::kPi / 180.0f;
+    const float horizontalLength = std::cos(pitchRadians);
+    return normalize({std::sin(yawRadians) * horizontalLength,
+                      std::sin(pitchRadians),
+                      -std::cos(yawRadians) * horizontalLength});
+}
+
 Vec3 ThreeDUtils::cameraRight() {
     return normalize(cross(cameraForward(), {0.0f, 1.0f, 0.0f}));
+}
+
+Vec3 ThreeDUtils::cameraRight(float yawDegrees, float pitchDegrees) {
+    return normalize(
+        cross(cameraForward(yawDegrees, pitchDegrees), {0.0f, 1.0f, 0.0f}));
 }
 
 Vec3 ThreeDUtils::cameraUp() {
     return cross(cameraRight(), cameraForward());
 }
 
+Vec3 ThreeDUtils::cameraUp(float yawDegrees, float pitchDegrees) {
+    return cross(cameraRight(yawDegrees, pitchDegrees),
+                 cameraForward(yawDegrees, pitchDegrees));
+}
+
 Vec3 ThreeDUtils::cameraToWorld(const Vec3& cameraPosition,
                                 const Vec3& viewPosition) {
     return cameraPosition + cameraRight() * viewPosition.x +
            cameraUp() * viewPosition.y + cameraForward() * (-viewPosition.z);
+}
+
+Vec3 ThreeDUtils::cameraToWorld(const Vec3& cameraPosition,
+                                const Vec3& viewPosition, float yawDegrees,
+                                float pitchDegrees) {
+    return cameraPosition +
+           cameraRight(yawDegrees, pitchDegrees) * viewPosition.x +
+           cameraUp(yawDegrees, pitchDegrees) * viewPosition.y +
+           cameraForward(yawDegrees, pitchDegrees) * (-viewPosition.z);
 }
 
 float ThreeDUtils::currentFieldOfView(float aimAmount) {
@@ -189,6 +217,24 @@ void ThreeDUtils::applyCamera(const Vec3& cameraPosition) {
         s.z, u.z, -f.z, 0.0f,
         -dot(s, cameraPosition), -dot(u, cameraPosition),
         dot(f, cameraPosition), 1.0f,
+    };
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf(matrix);
+}
+
+void ThreeDUtils::applyCamera(const Vec3& cameraPosition, float yawDegrees,
+                              float pitchDegrees) {
+    const Vec3 forward = cameraForward(yawDegrees, pitchDegrees);
+    const Vec3 right = cameraRight(yawDegrees, pitchDegrees);
+    const Vec3 up = cameraUp(yawDegrees, pitchDegrees);
+
+    const GLfloat matrix[16] = {
+        right.x, up.x, -forward.x, 0.0f,
+        right.y, up.y, -forward.y, 0.0f,
+        right.z, up.z, -forward.z, 0.0f,
+        -dot(right, cameraPosition), -dot(up, cameraPosition),
+        dot(forward, cameraPosition), 1.0f,
     };
 
     glMatrixMode(GL_MODELVIEW);

@@ -17,6 +17,8 @@ inline constexpr float kCameraRunCycleMultiplier = 1.55f;
 inline constexpr float kCameraGroundHeight = 2.8f;
 inline constexpr float kCameraJumpVelocity = 5.8f;
 inline constexpr float kCameraGravity = 14.0f;
+inline constexpr float kCameraLookSensitivity = 0.12f;
+inline constexpr float kCameraPitchLimitDegrees = 15.0f;
 inline constexpr float kWorldLimit = 21.0f;
 
 inline constexpr Color kSkyTop{0.08f, 0.34f, 0.78f};

@@ -18,10 +18,16 @@ public:
     static Vec3 lerp(const Vec3& a, const Vec3& b, float t);
 
     static Vec3 cameraForward();
+    static Vec3 cameraForward(float yawDegrees, float pitchDegrees);
     static Vec3 cameraRight();
+    static Vec3 cameraRight(float yawDegrees, float pitchDegrees);
     static Vec3 cameraUp();
+    static Vec3 cameraUp(float yawDegrees, float pitchDegrees);
     static Vec3 cameraToWorld(const Vec3& cameraPosition,
                               const Vec3& viewPosition);
+    static Vec3 cameraToWorld(const Vec3& cameraPosition,
+                              const Vec3& viewPosition, float yawDegrees,
+                              float pitchDegrees);
     static float currentFieldOfView(float aimAmount);
 
     static void setProjection(int width, int height,
@@ -31,6 +37,8 @@ public:
     static void configureRendering();
     static void setUiProjection(int width, int height);
     static void applyCamera(const Vec3& cameraPosition);
+    static void applyCamera(const Vec3& cameraPosition, float yawDegrees,
+                            float pitchDegrees);
 
     static void drawRect2D(const Rect& rect, const Color& color,
                            float alpha = 1.0f);

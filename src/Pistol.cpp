@@ -31,8 +31,7 @@ void Pistol::update(GLFWwindow* window, const Camera& camera,
 
         const Vec3 muzzlePosition = muzzleWorldPosition(camera);
         const Vec3 target =
-            camera.position() +
-            ThreeDUtils::cameraForward() * constants::kBulletAimDistance;
+            camera.position() + camera.forward() * constants::kBulletAimDistance;
         const Vec3 direction = ThreeDUtils::normalize(target - muzzlePosition);
         bullets.push_back(std::make_unique<PistolBullet>(
             muzzlePosition, direction * constants::kBulletSpeed,

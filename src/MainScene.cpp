@@ -266,6 +266,8 @@ bool MainScene::initialize() {
 
 void MainScene::resetGame() {
     camera_.reset();
+    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    camera_.resetLookTracking(window_);
     character_.reset();
     bigHeadSon_.reset();
     police_.reset();
@@ -292,6 +294,8 @@ void MainScene::updateExitPrompt() {
         glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
     if (escapeDown && !previousEscapeDown_ && !exitPromptVisible_) {
         exitPromptVisible_ = true;
+        glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        camera_.resetLookTracking(window_);
         previousPromptMouseDown_ =
             glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     }
@@ -315,6 +319,8 @@ void MainScene::updateExitPrompt() {
         glfwSetWindowShouldClose(window_, GLFW_TRUE);
     } else if (contains(layout.noButton, promptMouse_.x, promptMouse_.y)) {
         exitPromptVisible_ = false;
+        glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        camera_.resetLookTracking(window_);
         previousFireDown_ = promptMouse_.pressed;
         previousJumpDown_ =
             glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
@@ -322,6 +328,7 @@ void MainScene::updateExitPrompt() {
 }
 
 void MainScene::updateGameplay(float dt) {
+    camera_.updateLook(window_);
     camera_.update(window_, dt, previousJumpDown_);
     camera_.updateAim(window_, dt);
     character_.update(window_, dt);
@@ -946,7 +953,7 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state) {
     const std::string title =
         state == AppState::MainMenu
             ? "Pixel World 3D | Main Menu"
-            : "Pixel World 3D | LMB fire | RMB aim | E attack | Shift run | Space jump | Arrows walk | WASD camera | Esc exit";
+            : "Pixel World 3D | Mouse look | LMB fire | RMB aim | E attack | Shift run | Space jump | Arrows walk | WASD move | Esc exit";
     if (title == lastTitle) {
         return;
     }
