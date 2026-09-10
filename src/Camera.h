@@ -3,15 +3,21 @@
 #include "platform.h"
 #include "types.h"
 
+#include <functional>
+
 namespace pixel_world {
 
 class Camera {
 public:
+    using MovementCollisionTest = std::function<bool(const Vec3&)>;
+
     Camera();
     explicit Camera(const Vec3& position);
 
     void reset(const Vec3& position = {0.0f, 2.8f, 17.5f});
     bool update(GLFWwindow* window, float dt, bool& previousJumpDown);
+    bool update(GLFWwindow* window, float dt, bool& previousJumpDown,
+                const MovementCollisionTest& collisionTest);
     void updateLook(GLFWwindow* window);
     void resetLookTracking(GLFWwindow* window);
     void updateAim(GLFWwindow* window, float dt);

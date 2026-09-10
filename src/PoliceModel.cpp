@@ -816,6 +816,10 @@ void PoliceModel::setPosition(const Vec3& position) {
     position_ = position;
 }
 
+const Vec3& PoliceModel::position() const {
+    return position_;
+}
+
 void PoliceModel::setCrouched(bool crouched) {
     crouched_ = crouched;
     if (crouched_) {
@@ -861,7 +865,8 @@ void PoliceModel::setMoving(bool moving) {
 void PoliceModel::render() const {
     glPushMatrix();
     glTranslatef(position_.x, position_.y, position_.z);
-    glScalef(0.56f, 0.56f, 0.56f);
+    glScalef(constants::kPoliceScale, constants::kPoliceScale,
+             constants::kPoliceScale);
 
     drawBoundPart(impl_->torso, impl_->bones[kTorsoBone], {},
                   {1.02f, 1.20f, 0.72f});

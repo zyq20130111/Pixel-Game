@@ -836,7 +836,8 @@ void BigHeadSonModel::setMoving(bool moving) {
 void BigHeadSonModel::render() const {
     glPushMatrix();
     glTranslatef(-3.0f, 0.0f, 0.6f);
-    glScalef(0.62f, 0.62f, 0.62f);
+    glScalef(constants::kBigHeadSonScale, constants::kBigHeadSonScale,
+             constants::kBigHeadSonScale);
 
     drawBoundPart(impl_->torso, impl_->bones[kTorsoBone], {},
                   {1.0f, 1.10f, 0.72f});

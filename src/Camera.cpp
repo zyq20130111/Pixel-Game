@@ -32,6 +32,11 @@ void Camera::reset(const Vec3& position) {
 }
 
 bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown) {
+    return update(window, dt, previousJumpDown, MovementCollisionTest{});
+}
+
+bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
+                    const MovementCollisionTest& collisionTest) {
     Vec3 input{};
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
         input.z -= 1.0f;
@@ -59,7 +64,32 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown) {
         const float speed =
             constants::kCameraMoveSpeed *
             (running_ ? constants::kCameraRunSpeedMultiplier : 1.0f);
-        position_ = position_ + direction * (speed * dt);
+        const Vec3 displacement = direction * (speed * dt);
+        const float longestAxisMove =
+            std::max(std::abs(displacement.x), std::abs(displacement.z));
+        const int stepCount = std::max(
+            1, static_cast<int>(std::ceil(longestAxisMove / 0.10f)));
+        const Vec3 step = displacement * (1.0f / static_cast<float>(stepCount));
+
+        // Subdivide fast movement so a single frame cannot tunnel through a
+        // thin tree trunk or character collider. Resolving each axis
+        // independently also lets the camera slide along the obstacle.
+        for (int stepIndex = 0; stepIndex < stepCount; ++stepIndex) {
+            if (std::abs(step.x) > 0.0001f) {
+                Vec3 candidate = position_;
+                candidate.x += step.x;
+                if (!collisionTest || !collisionTest(candidate)) {
+                    position_.x = candidate.x;
+                }
+            }
+            if (std::abs(step.z) > 0.0001f) {
+                Vec3 candidate = position_;
+                candidate.z += step.z;
+                if (!collisionTest || !collisionTest(candidate)) {
+                    position_.z = candidate.z;
+                }
+            }
+        }
         position_.x =
             std::clamp(position_.x, -constants::kWorldLimit, constants::kWorldLimit);
         position_.z =

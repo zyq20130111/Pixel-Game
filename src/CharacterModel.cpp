@@ -217,7 +217,7 @@ void CharacterModel::renderHealthBar() const {
             ? constants::kHealthBarFill
             : (healthRatio > 0.25f ? constants::kHealthBarMid
                                    : constants::kHealthBarLow);
-    const float barScale = 0.5f;
+    const float barScale = 0.5f * constants::kSceneCharacterScaleMultiplier;
     const float fullWidth = 1.14f * barScale;
     const float fillWidth = fullWidth * healthRatio;
     const float x = position_.x;

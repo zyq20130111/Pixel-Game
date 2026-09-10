@@ -20,6 +20,37 @@ using namespace constants;
 constexpr float kMapScale = 1.45f;
 constexpr float kBuildingHeightScale = 1.35f;
 constexpr float kDecorationScale = 1.25f;
+constexpr float kCameraCollisionRadius = 0.42f;
+constexpr float kTreeCollisionHalfExtent = 0.62f * kDecorationScale;
+constexpr float kBigHeadCollisionHalfExtent =
+    0.50f * kSceneCharacterScaleMultiplier;
+constexpr float kPoliceCollisionHalfX =
+    0.52f * kSceneCharacterScaleMultiplier;
+constexpr float kPoliceCollisionHalfZ =
+    0.48f * kSceneCharacterScaleMultiplier;
+
+struct RockPlacement {
+    Vec3 base;
+    float scale;
+};
+
+constexpr std::array<Vec3, 8> kTreeBases{{
+    {-9.5f, 0.0f, -10.5f},
+    {9.5f, 0.0f, -10.5f},
+    {-9.5f, 0.0f, -3.0f},
+    {9.5f, 0.0f, -3.0f},
+    {-9.5f, 0.0f, 5.0f},
+    {9.5f, 0.0f, 5.0f},
+    {-9.5f, 0.0f, 11.5f},
+    {9.5f, 0.0f, 11.5f},
+}};
+
+constexpr std::array<RockPlacement, 4> kRockPlacements{{
+    {{-11.0f, 0.0f, 1.5f}, 1.0f},
+    {{11.0f, 0.0f, 1.5f}, 1.1f},
+    {{-10.5f, 0.0f, 13.0f}, 0.9f},
+    {{10.5f, 0.0f, 13.0f}, 0.9f},
+}};
 
 struct ExitPromptLayout {
     Rect panel;
@@ -117,6 +148,18 @@ void drawWorldLabel(const char* label, const Vec3& center, float pixelScale,
         text, -ThreeDUtils::textWidth(text, pixelScale) * 0.5f, 0.0f,
         pixelScale, color);
     glPopMatrix();
+}
+
+bool circleIntersectsBox(float circleX, float circleZ, float radius,
+                         float boxCenterX, float boxCenterZ, float halfX,
+                         float halfZ) {
+    const float closestX =
+        std::clamp(circleX, boxCenterX - halfX, boxCenterX + halfX);
+    const float closestZ =
+        std::clamp(circleZ, boxCenterZ - halfZ, boxCenterZ + halfZ);
+    const float deltaX = circleX - closestX;
+    const float deltaZ = circleZ - closestZ;
+    return deltaX * deltaX + deltaZ * deltaZ <= radius * radius;
 }
 
 }  // namespace
@@ -321,7 +364,11 @@ void MainScene::updateExitPrompt() {
 
 void MainScene::updateGameplay(float dt) {
     camera_.updateLook(window_);
-    camera_.update(window_, dt, previousJumpDown_);
+    camera_.update(
+        window_, dt, previousJumpDown_,
+        [this](const Vec3& position) {
+            return cameraPositionBlocked(position);
+        });
     camera_.updateAim(window_, dt);
     character_.update(window_, dt);
     bigHeadSon_.update(dt);
@@ -395,6 +442,63 @@ void MainScene::updateImpactEffects(float dt) {
                 return effect.age >= effect.duration;
             }),
         impactEffects_.end());
+}
+
+bool MainScene::cameraPositionBlocked(const Vec3& position) const {
+    const auto collidesWithBox = [&](float centerX, float centerZ, float halfX,
+                                     float halfZ) {
+        return circleIntersectsBox(position.x, position.z,
+                                   kCameraCollisionRadius, centerX, centerZ,
+                                   halfX, halfZ);
+    };
+
+    for (const Vec3& base : kTreeBases) {
+        const float x = base.x * kMapScale;
+        const float z = base.z * kMapScale;
+        if (collidesWithBox(x, z, kTreeCollisionHalfExtent,
+                            kTreeCollisionHalfExtent)) {
+            return true;
+        }
+    }
+
+    for (const RockPlacement& rock : kRockPlacements) {
+        const float decorationScale = rock.scale * kDecorationScale;
+        const float x = rock.base.x * kMapScale + 0.04f * decorationScale;
+        const float z = rock.base.z * kMapScale - 0.03f * decorationScale;
+        if (collidesWithBox(x, z, 0.42f * decorationScale,
+                            0.46f * decorationScale)) {
+            return true;
+        }
+    }
+
+    // The portal opening remains passable, while its two solid side pillars
+    // block the player like the geometry shown on screen.
+    const float portalZ = 12.4f * kMapScale;
+    const float portalPostX = 1.18f * kMapScale;
+    const float portalPostHalfX = 0.24f * kMapScale;
+    const float portalPostHalfZ = 0.25f * kMapScale;
+    if (collidesWithBox(-portalPostX, portalZ, portalPostHalfX,
+                        portalPostHalfZ) ||
+        collidesWithBox(portalPostX, portalZ, portalPostHalfX,
+                        portalPostHalfZ)) {
+        return true;
+    }
+
+    // Collision boxes for the visible characters are deliberately a little
+    // wider than their meshes so the first-person camera cannot overlap them.
+    if (collidesWithBox(-3.0f, 0.6f, kBigHeadCollisionHalfExtent,
+                        kBigHeadCollisionHalfExtent) ||
+        collidesWithBox(character_.position().x, character_.position().z,
+                        kCharacterHitHalfWidth, kCharacterHitHalfDepth) ||
+        collidesWithBox(police_.position().x, police_.position().z,
+                        kPoliceCollisionHalfX, kPoliceCollisionHalfZ) ||
+        collidesWithBox(policeCrouched_.position().x,
+                        policeCrouched_.position().z, kPoliceCollisionHalfX,
+                        kPoliceCollisionHalfZ)) {
+        return true;
+    }
+
+    return false;
 }
 
 void MainScene::renderFrame(const Camera& camera, bool showPistol) {
@@ -581,7 +685,10 @@ void MainScene::drawSkybox(const Vec3& cameraPosition) const {
     glDepthMask(GL_FALSE);
     glDisable(GL_DEPTH_TEST);
 
-    const float halfSize = 90.0f;
+    // Keep the farthest skybox corner inside the far clipping plane.  With a
+    // 90-unit half-size, diagonal view rays reached roughly 156 units while
+    // kFarPlane is 120, exposing the black clear color as triangular gaps.
+    const float halfSize = kFarPlane * 0.5f;
     const Vec3 center = cameraPosition;
     const Vec3 p000{center.x - halfSize, center.y - halfSize,
                     center.z - halfSize};

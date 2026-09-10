@@ -15,6 +15,7 @@ public:
     void update(float dt);
     void render() const;
     void setPosition(const Vec3& position);
+    const Vec3& position() const;
     void setCrouched(bool crouched);
     void setProne(bool prone);
     void setMoving(bool moving);

@@ -30,6 +30,7 @@ private:
     void updateGameplay(float dt);
     void updateBullets(float dt);
     void updateImpactEffects(float dt);
+    bool cameraPositionBlocked(const Vec3& position) const;
     void renderFrame(const Camera& camera, bool showPistol);
     void renderExitPrompt() const;
     void renderScene() const;

@@ -152,19 +152,31 @@ inline constexpr float kCharacterPathMinX = -2.2f;
 inline constexpr float kCharacterPathMaxX = 2.2f;
 inline constexpr float kCharacterPathMinZ = -1.1f;
 inline constexpr float kCharacterPathMaxZ = 2.1f;
-inline constexpr float kCharacterScale = 0.5f;
+inline constexpr float kSceneCharacterScaleMultiplier = 2.0f;
+inline constexpr float kCharacterScale =
+    0.5f * kSceneCharacterScaleMultiplier;
+inline constexpr float kBigHeadSonScale =
+    0.62f * kSceneCharacterScaleMultiplier;
+inline constexpr float kPoliceScale =
+    0.56f * kSceneCharacterScaleMultiplier;
 inline constexpr int kCharacterMaxHp = 100;
 inline constexpr int kPistolLegDamage = 10;
 inline constexpr int kPistolWaistDamage = 50;
 inline constexpr int kPistolHeadDamage = 100;
 inline constexpr float kCharacterDeathDuration = 1.1f;
-inline constexpr float kCharacterHitHalfWidth = 0.48f;
-inline constexpr float kCharacterHitHalfDepth = 0.42f;
+inline constexpr float kCharacterHitHalfWidth =
+    0.48f * kSceneCharacterScaleMultiplier;
+inline constexpr float kCharacterHitHalfDepth =
+    0.42f * kSceneCharacterScaleMultiplier;
 inline constexpr float kCharacterHitBottom = 0.04f;
-inline constexpr float kCharacterHitTop = 1.82f;
-inline constexpr float kCharacterLegHitTop = 0.78f;
-inline constexpr float kCharacterWaistHitTop = 1.28f;
-inline constexpr float kCharacterHealthBarHeight = 2.14f;
+inline constexpr float kCharacterHitTop =
+    1.82f * kSceneCharacterScaleMultiplier;
+inline constexpr float kCharacterLegHitTop =
+    0.78f * kSceneCharacterScaleMultiplier;
+inline constexpr float kCharacterWaistHitTop =
+    1.28f * kSceneCharacterScaleMultiplier;
+inline constexpr float kCharacterHealthBarHeight =
+    2.14f * kSceneCharacterScaleMultiplier;
 inline constexpr float kBulletGroundHitHeight = 0.05f;
 inline constexpr float kGroundImpactDuration = 0.45f;
 inline constexpr float kCharacterImpactDuration = 0.35f;
