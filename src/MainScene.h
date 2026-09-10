@@ -5,11 +5,13 @@
 #include "Camera.h"
 #include "LowPolyCharacterModel.h"
 #include "LoginScreen.h"
+#include "MikoModel.h"
 #include "PoliceModel.h"
 #include "platform.h"
 #include "SceneBase.h"
 #include "types.h"
 #include "Pistol.h"
+#include "ZombieModel.h"
 
 #include <memory>
 #include <vector>
@@ -69,6 +71,8 @@ private:
     BigHeadSonModel bigHeadSon_;
     PoliceModel police_;
     PoliceModel policeCrouched_;
+    ZombieModel zombie_;
+    MikoModel miko_;
     Pistol pistol_;
     LoginScreen loginScreen_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;

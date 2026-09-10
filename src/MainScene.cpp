@@ -176,6 +176,8 @@ MainScene::MainScene()
       bigHeadSon_(),
       police_(),
       policeCrouched_(),
+      zombie_(),
+      miko_(),
       pistol_(),
       loginScreen_(),
       bullets_(),
@@ -311,6 +313,8 @@ void MainScene::resetGame() {
     bigHeadSon_.reset();
     police_.reset();
     policeCrouched_.reset();
+    zombie_.reset();
+    miko_.reset();
     policeCrouched_.setPosition({4.8f, 0.0f, 0.6f});
     policeCrouched_.setCrouched(true);
     policeCrouched_.setMoving(false);
@@ -374,6 +378,8 @@ void MainScene::updateGameplay(float dt) {
     bigHeadSon_.update(dt);
     police_.update(dt);
     policeCrouched_.update(dt);
+    zombie_.update(dt);
+    miko_.update(dt);
     pistol_.update(window_, camera_, bullets_, previousFireDown_, dt);
     updateImpactEffects(dt);
     updateBullets(dt);
@@ -494,7 +500,13 @@ bool MainScene::cameraPositionBlocked(const Vec3& position) const {
                         kPoliceCollisionHalfX, kPoliceCollisionHalfZ) ||
         collidesWithBox(policeCrouched_.position().x,
                         policeCrouched_.position().z, kPoliceCollisionHalfX,
-                        kPoliceCollisionHalfZ)) {
+                        kPoliceCollisionHalfZ) ||
+        collidesWithBox(zombie_.position().x, zombie_.position().z,
+                        kZombieCollisionHalfWidth,
+                        kZombieCollisionHalfDepth) ||
+        collidesWithBox(miko_.position().x, miko_.position().z,
+                        kMikoCollisionHalfWidth,
+                        kMikoCollisionHalfDepth)) {
         return true;
     }
 
@@ -562,6 +574,8 @@ void MainScene::renderScene() const {
     bigHeadSon_.render();
     police_.render();
     policeCrouched_.render();
+    zombie_.render();
+    miko_.render();
 }
 
 void MainScene::renderExitPrompt() const {

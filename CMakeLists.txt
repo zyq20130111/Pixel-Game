@@ -27,6 +27,8 @@ add_executable(
     src/SceneBase.cpp
     src/BigHeadSonModel.cpp
     src/PoliceModel.cpp
+    src/ZombieModel.cpp
+    src/MikoModel.cpp
     src/CharacterModelBase.cpp
     src/CharacterModel.cpp
     src/LowPolyCharacterModel.cpp
