@@ -314,6 +314,7 @@ void MainScene::resetGame() {
     police_.reset();
     policeCrouched_.reset();
     zombie_.reset();
+    zombie_.setAudioListener(camera_.position(), camera_.forward());
     miko_.reset();
     policeCrouched_.setPosition({4.8f, 0.0f, 0.6f});
     policeCrouched_.setCrouched(true);
@@ -378,6 +379,7 @@ void MainScene::updateGameplay(float dt) {
     bigHeadSon_.update(dt);
     police_.update(dt);
     policeCrouched_.update(dt);
+    zombie_.setAudioListener(camera_.position(), camera_.forward());
     zombie_.update(dt);
     miko_.update(dt);
     pistol_.update(window_, camera_, bullets_, previousFireDown_, dt);

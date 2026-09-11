@@ -25,9 +25,12 @@ add_executable(
     src/ThreeDUtils.cpp
     src/Camera.cpp
     src/SceneBase.cpp
+    src/SoundBase.cpp
+    src/miniaudio.cpp
     src/BigHeadSonModel.cpp
     src/PoliceModel.cpp
     src/ZombieModel.cpp
+    src/ZombieAttackSound.cpp
     src/MikoModel.cpp
     src/CharacterModelBase.cpp
     src/CharacterModel.cpp
@@ -39,6 +42,9 @@ add_executable(
     src/BaseUI.cpp
     src/LoginScreen.cpp
     src/MainScene.cpp
+)
+target_include_directories(Pixel-Game PRIVATE
+    third_party/miniaudio
 )
 target_link_libraries(Pixel-Game PRIVATE glfw OpenGL::GL)
 
