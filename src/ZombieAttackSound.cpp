@@ -13,7 +13,7 @@ namespace {
 
 constexpr ma_uint32 kSampleRate = 48000;
 constexpr ma_uint32 kChannelCount = 1;
-constexpr float kSoundDurationSeconds = 0.96f;
+constexpr float kSoundDurationSeconds = 0.88f;
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kTau = kPi * 2.0f;
 constexpr ma_uint32 kListenerIndex = 0;
@@ -92,30 +92,29 @@ std::vector<float> makeAttackSamples() {
     std::vector<float> samples(static_cast<std::size_t>(
         frameCount * static_cast<ma_uint64>(kChannelCount)));
 
-    // The body, rasp and hiss are deliberately separate.  A believable
-    // creature voice is usually a small stack of unlike layers, rather than
-    // one oscillator with a low-pass filter.
+    // Keep the low growl dominant. The rasp and breath layers are accents,
+    // otherwise the sound turns into a bright filtered-noise burst.
     Biquad chestFormant;
     Biquad throatFormant;
     Biquad mouthFormant;
     Biquad raspFormant;
     Biquad hissFormant;
     Biquad attackFormant;
-    chestFormant.configureBandPass(185.0f, 1.25f);
-    throatFormant.configureBandPass(390.0f, 1.55f);
-    mouthFormant.configureBandPass(860.0f, 2.0f);
-    raspFormant.configureBandPass(1720.0f, 1.25f);
-    hissFormant.configureBandPass(3300.0f, 1.45f);
-    attackFormant.configureBandPass(2100.0f, 1.15f);
+    chestFormant.configureBandPass(145.0f, 0.9f);
+    throatFormant.configureBandPass(325.0f, 1.05f);
+    mouthFormant.configureBandPass(720.0f, 1.15f);
+    raspFormant.configureBandPass(1450.0f, 0.9f);
+    hissFormant.configureBandPass(2800.0f, 0.95f);
+    attackFormant.configureBandPass(1900.0f, 0.8f);
 
     OnePoleLowPass lowNoiseFilter;
     OnePoleLowPass midNoiseFilter;
     OnePoleLowPass raspNoiseFilter;
     OnePoleLowPass hissNoiseFilter;
-    lowNoiseFilter.configure(95.0f);
-    midNoiseFilter.configure(480.0f);
-    raspNoiseFilter.configure(1050.0f);
-    hissNoiseFilter.configure(2650.0f);
+    lowNoiseFilter.configure(70.0f);
+    midNoiseFilter.configure(360.0f);
+    raspNoiseFilter.configure(900.0f);
+    hissNoiseFilter.configure(2200.0f);
 
     std::uint32_t randomState = 0x6d2b79f5u;
     std::uint32_t pulseRandomState = 0x1f123bb5u;
@@ -129,7 +128,8 @@ std::vector<float> makeAttackSamples() {
     float subharmonicPhase = 0.0f;
     float detunedPhase = 0.0f;
     std::uint32_t pulseIndex = 0;
-    float pulseWidth = 0.21f;
+    float pulseWidth = 0.32f;
+    float pulseAccent = 0.92f;
 
     for (ma_uint64 frame = 0; frame < frameCount; ++frame) {
         const float time =
@@ -144,25 +144,25 @@ std::vector<float> makeAttackSamples() {
         pitchJitter += (lowNoise - pitchJitter) * 0.025f;
         amplitudeJitter += (midNoise - amplitudeJitter) * 0.06f;
 
-        const float onset = smoothStep(time / 0.012f);
-        const float release =
-            1.0f - smoothStep((time - 0.68f) / 0.28f);
+        const float onset = smoothStep(time / 0.018f);
+        const float release = 1.0f - smoothStep((time - 0.57f) / 0.31f);
         const float roarEnvelope = onset * release;
         const float inhaleEnvelope =
-            smoothStep(time / 0.004f) *
-            (1.0f - smoothStep((time - 0.085f) / 0.105f));
+            smoothStep(time / 0.003f) *
+            (1.0f - smoothStep((time - 0.045f) / 0.11f));
         const float raspEnvelope =
-            smoothStep(time / 0.006f) *
-            (1.0f - smoothStep((time - 0.31f) / 0.30f));
+            smoothStep(time / 0.012f) *
+            (1.0f - smoothStep((time - 0.36f) / 0.27f));
         const float attackEnvelope =
-            std::exp(-time * 105.0f) * smoothStep(time / 0.0015f);
+            smoothStep(time / 0.0008f) *
+            (1.0f - smoothStep((time - 0.018f) / 0.05f));
 
-        // A falling pitch and a little cycle-to-cycle instability are more
-        // characteristic of a strained growl than a stable musical note.
+        // A falling pitch gives the attack a physical downward pull instead
+        // of making it sound like a sustained synth note.
         const float frequency =
-            143.0f - 70.0f * smoothStep(progress) +
-            5.5f * std::sin(kTau * 4.2f * time) +
-            10.0f * pitchJitter;
+            158.0f - 82.0f * smoothStep(progress) +
+            4.0f * std::sin(kTau * 3.8f * time) +
+            8.0f * pitchJitter;
         const float phaseIncrement =
             std::max(38.0f, frequency) /
             static_cast<float>(kSampleRate);
@@ -179,37 +179,36 @@ std::vector<float> makeAttackSamples() {
         if (vocalPhase < previousPhase) {
             ++pulseIndex;
             const float randomPulse = nextNoise(pulseRandomState);
-            pulseWidth = std::clamp(0.18f + 0.075f * randomPulse,
-                                    0.105f, 0.275f);
+            pulseWidth = std::clamp(0.32f + 0.09f * randomPulse,
+                                    0.20f, 0.43f);
+            pulseAccent = std::clamp(
+                0.90f + 0.12f * nextNoise(pulseRandomState), 0.74f, 1.08f);
         }
 
-        // Long closed phases and alternating pulse strength approximate
-        // vocal fry / creaky phonation.  The alternating cycles keep the
-        // voice from collapsing into a perfectly periodic synth tone.
+        // A rounded glottal pulse supplies the vocal character. The small
+        // negative closed-phase tail adds roughness without harsh alias-like
+        // edges.
         const float openPhase = vocalPhase / pulseWidth;
         const float glottalPulse =
             vocalPhase < pulseWidth
-                ? std::pow(std::max(0.0f, std::sin(kPi * openPhase)), 0.42f)
-                : -0.08f *
+                ? std::pow(std::max(0.0f, std::sin(kPi * openPhase)), 0.62f)
+                : -0.055f *
                       std::sin(kPi * (vocalPhase - pulseWidth) /
                                (1.0f - pulseWidth));
-        const float pulseAccent =
-            pulseIndex % 3u == 0u ? 0.68f
-                                  : (pulseIndex % 5u == 2u ? 1.16f : 0.94f);
         const float fryPulse = glottalPulse * pulseAccent;
 
         const float subharmonic =
             std::sin(kTau * subharmonicPhase) +
-            0.38f * std::sin(kTau * subharmonicPhase * 2.0f);
+            0.24f * std::sin(kTau * subharmonicPhase * 2.0f);
         const float detunedVoice =
             std::sin(kTau * detunedPhase) +
-            0.28f * std::sin(kTau * detunedPhase * 2.0f);
+            0.18f * std::sin(kTau * detunedPhase * 2.0f);
         const float larynxNoise =
-            0.32f * lowNoise + 0.18f * midNoise +
-            0.12f * std::sin(kTau * 47.0f * time);
+            0.42f * lowNoise + 0.14f * midNoise +
+            0.08f * std::sin(kTau * 47.0f * time);
         const float throatDrive =
-            1.18f * fryPulse + 0.28f * subharmonic +
-            0.14f * detunedVoice + 0.20f * larynxNoise;
+            1.42f * fryPulse + 0.34f * subharmonic +
+            0.12f * detunedVoice + 0.18f * larynxNoise;
 
         const float chest = chestFormant.process(throatDrive);
         const float throat = throatFormant.process(throatDrive);
@@ -219,31 +218,32 @@ std::vector<float> makeAttackSamples() {
         const float hiss = hissFormant.process(hissNoise);
 
         const float cleanVoice =
-            2.8f * chest + 2.0f * throat + 1.24f * mouth;
+            3.8f * chest + 2.2f * throat + 0.95f * mouth;
         const float distortedVoice = normalizedSaturation(
-            2.25f * cleanVoice + 1.8f * formantRasp, 2.6f);
+            2.6f * cleanVoice + 1.1f * formantRasp, 1.8f);
         const float body =
-            0.62f * normalizedSaturation(cleanVoice, 1.75f) +
-            0.52f * distortedVoice;
+            0.78f * normalizedSaturation(cleanVoice, 1.45f) +
+            0.34f * distortedVoice;
 
         const float breath =
             raspEnvelope *
-            (0.40f * raspNoise + 0.78f * formantRasp +
-             0.32f * hiss);
+            (0.24f * raspNoise + 0.48f * formantRasp +
+             0.16f * hiss);
         const float inhale =
             inhaleEnvelope *
-            (0.34f * raspNoise + 0.76f * hiss +
-             0.22f * std::sin(kTau * 92.0f * time));
+            (0.26f * raspNoise + 0.46f * hiss +
+             0.16f * std::sin(kTau * 92.0f * time));
         const float attackNoise =
             attackEnvelope *
-            (1.15f * attackFormant.process(whiteNoise) +
-             0.38f * raspNoise);
+            (0.68f * attackFormant.process(whiteNoise) +
+             0.22f * raspNoise);
         const float growlMod =
-            0.84f + 0.16f * std::sin(kTau * 5.4f * time + 0.7f) +
-            0.08f * amplitudeJitter;
+            0.91f + 0.09f * std::sin(kTau * 4.7f * time + 0.7f) +
+            0.05f * amplitudeJitter;
         const float sample = std::clamp(
-            roarEnvelope * growlMod * (0.72f * body + 0.32f * breath) +
-                0.38f * inhale + 0.42f * attackNoise,
+            1.12f *
+                    (roarEnvelope * growlMod * (0.88f * body + 0.20f * breath) +
+                     0.22f * inhale + 0.24f * attackNoise),
             -0.95f, 0.95f);
 
         samples[static_cast<std::size_t>(frame * kChannelCount)] =

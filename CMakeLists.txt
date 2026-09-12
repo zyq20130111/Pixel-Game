@@ -38,6 +38,7 @@ add_executable(
     src/PistolBullet.cpp
     src/BulletBase.cpp
     src/Pistol.cpp
+    src/PistolFireSound.cpp
     src/WeaponBase.cpp
     src/BaseUI.cpp
     src/LoginScreen.cpp

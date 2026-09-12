@@ -564,10 +564,13 @@ void drawGunPivotedBuffer(const VertexBuffer& buffer, const Vec3& pivot,
 
 }  // namespace
 
-Pistol::Pistol() : muzzleFlashTimer_(0.0f) {}
+Pistol::Pistol() : muzzleFlashTimer_(0.0f), fireSound_() {
+    fireSound_.initialize();
+}
 
 void Pistol::reset() {
     muzzleFlashTimer_ = 0.0f;
+    fireSound_.stop();
 }
 
 void Pistol::update(GLFWwindow* window, const Camera& camera,
@@ -590,6 +593,7 @@ void Pistol::update(GLFWwindow* window, const Camera& camera,
             muzzlePosition, direction * constants::kBulletSpeed,
             constants::kBulletLifetime));
         muzzleFlashTimer_ = constants::kMuzzleFlashDuration;
+        fireSound_.play();
     }
     previousFireDown = fireDown;
 }

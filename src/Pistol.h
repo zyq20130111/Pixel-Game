@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PistolFireSound.h"
 #include "WeaponBase.h"
 #include "types.h"
 
@@ -32,6 +33,7 @@ private:
     static void drawIronSights(float aimAmount);
 
     float muzzleFlashTimer_;
+    PistolFireSound fireSound_;
 };
 
 }  // namespace pixel_world
