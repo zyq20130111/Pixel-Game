@@ -9,10 +9,13 @@
 namespace pixel_world {
 
 LoginScreen::LoginScreen()
-    : previousMouseDown_(false), mouse_{0.0f, 0.0f, false} {}
+    : previousMouseDown_(false),
+      buttonClicked_(false),
+      mouse_{0.0f, 0.0f, false} {}
 
 MenuAction LoginScreen::update(GLFWwindow* window, int framebufferWidth,
                                int framebufferHeight) {
+    buttonClicked_ = false;
     if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
         return MenuAction::Login;
     }
@@ -29,12 +32,18 @@ MenuAction LoginScreen::update(GLFWwindow* window, int framebufferWidth,
 
     const MenuLayout layout = makeLayout(framebufferWidth, framebufferHeight);
     if (contains(layout.loginButton, mouse_.x, mouse_.y)) {
+        buttonClicked_ = true;
         return MenuAction::Login;
     }
     if (contains(layout.exitButton, mouse_.x, mouse_.y)) {
+        buttonClicked_ = true;
         return MenuAction::Exit;
     }
     return MenuAction::None;
+}
+
+bool LoginScreen::buttonClicked() const {
+    return buttonClicked_;
 }
 
 void LoginScreen::render(int framebufferWidth, int framebufferHeight) const {

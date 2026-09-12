@@ -2,6 +2,7 @@
 
 #include "ThreeDUtils.h"
 #include "game_constants.h"
+#include "SoundManager.h"
 #include "platform.h"
 
 #include <algorithm>
@@ -326,7 +327,6 @@ struct ZombieModel::Impl {
 ZombieModel::ZombieModel()
     : animationPhase_(0.0f), position_(constants::kZombieDefaultPosition),
       impl_(nullptr) {
-    attackSound_.initialize();
     buildMeshes();
     reset();
 }
@@ -342,15 +342,9 @@ void ZombieModel::buildMeshes() {
 void ZombieModel::reset() {
     animationPhase_ = 0.0f;
     position_ = constants::kZombieDefaultPosition;
-    attackSound_.setPosition(
-        {position_.x, position_.y + kAttackSoundHeight, position_.z});
-    attackSound_.stop();
 }
 
-void ZombieModel::update(float dt) {
-    attackSound_.setPosition(
-        {position_.x, position_.y + kAttackSoundHeight, position_.z});
-
+void ZombieModel::update(float dt, SoundManager& soundManager) {
     if (dt <= 0.0f) {
         return;
     }
@@ -369,17 +363,15 @@ void ZombieModel::update(float dt) {
             break;
         }
 
-        attackSound_.play();
+        soundManager.play3D(
+            "zombies.mp3",
+            {position_.x, position_.y + kAttackSoundHeight, position_.z},
+            0.78f);
         currentTime = std::fmod(attackStart, kAttackCycleDuration);
         remainingTime -= timeToAttack;
     }
 
     animationPhase_ = std::fmod(currentTime, kAttackCycleDuration);
-}
-
-void ZombieModel::setAudioListener(const Vec3& position,
-                                   const Vec3& forward) {
-    attackSound_.setListener(position, forward, {0.0f, 1.0f, 0.0f});
 }
 
 const Vec3& ZombieModel::position() const {

@@ -9,6 +9,7 @@ namespace pixel_world {
 
 class Camera;
 class BulletBase;
+class SoundManager;
 
 class WeaponBase {
 public:
@@ -16,7 +17,8 @@ public:
 
     virtual void update(GLFWwindow* window, const Camera& camera,
                         std::vector<std::unique_ptr<BulletBase>>& bullets,
-                        bool& previousFireDown, float dt) = 0;
+                        SoundManager& soundManager, bool& previousFireDown,
+                        float dt) = 0;
     virtual void render(const Camera& camera) const = 0;
     virtual float muzzleFlashTimer() const = 0;
 };

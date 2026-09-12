@@ -1,10 +1,11 @@
 #pragma once
 
-#include "PistolFireSound.h"
 #include "WeaponBase.h"
 #include "types.h"
 
 namespace pixel_world {
+
+class SoundManager;
 
 class Pistol final : public WeaponBase {
 public:
@@ -13,7 +14,8 @@ public:
     void reset();
     void update(GLFWwindow* window, const Camera& camera,
                 std::vector<std::unique_ptr<BulletBase>>& bullets,
-                bool& previousFireDown, float dt) override;
+                SoundManager& soundManager, bool& previousFireDown,
+                float dt) override;
     void render(const Camera& camera) const override;
     float muzzleFlashTimer() const override;
 
@@ -33,7 +35,6 @@ private:
     static void drawIronSights(float aimAmount);
 
     float muzzleFlashTimer_;
-    PistolFireSound fireSound_;
 };
 
 }  // namespace pixel_world

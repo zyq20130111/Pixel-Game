@@ -9,6 +9,7 @@
 #include "PoliceModel.h"
 #include "platform.h"
 #include "SceneBase.h"
+#include "SoundManager.h"
 #include "types.h"
 #include "Pistol.h"
 #include "ZombieModel.h"
@@ -67,6 +68,7 @@ private:
 
     Camera camera_;
     Camera menuCamera_;
+    SoundManager soundManager_;
     LowPolyCharacterModel character_;
     BigHeadSonModel bigHeadSon_;
     PoliceModel police_;

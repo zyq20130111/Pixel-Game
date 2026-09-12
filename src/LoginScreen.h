@@ -11,6 +11,7 @@ public:
     MenuAction update(GLFWwindow* window, int framebufferWidth,
                       int framebufferHeight) override;
     void render(int framebufferWidth, int framebufferHeight) const override;
+    bool buttonClicked() const;
 
 private:
     static MenuLayout makeLayout(int width, int height);
@@ -22,6 +23,7 @@ private:
                            float uiScale);
 
     bool previousMouseDown_;
+    bool buttonClicked_;
     MouseState mouse_;
 };
 

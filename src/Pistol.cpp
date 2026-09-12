@@ -1,6 +1,7 @@
 #include "Pistol.h"
 
 #include "PistolBullet.h"
+#include "SoundManager.h"
 #include "Camera.h"
 #include "game_constants.h"
 #include "ThreeDUtils.h"
@@ -564,18 +565,16 @@ void drawGunPivotedBuffer(const VertexBuffer& buffer, const Vec3& pivot,
 
 }  // namespace
 
-Pistol::Pistol() : muzzleFlashTimer_(0.0f), fireSound_() {
-    fireSound_.initialize();
-}
+Pistol::Pistol() : muzzleFlashTimer_(0.0f) {}
 
 void Pistol::reset() {
     muzzleFlashTimer_ = 0.0f;
-    fireSound_.stop();
 }
 
 void Pistol::update(GLFWwindow* window, const Camera& camera,
                     std::vector<std::unique_ptr<BulletBase>>& bullets,
-                    bool& previousFireDown, float dt) {
+                    SoundManager& soundManager, bool& previousFireDown,
+                    float dt) {
     muzzleFlashTimer_ = std::max(0.0f, muzzleFlashTimer_ - dt);
 
     const bool fireDown =
@@ -593,7 +592,7 @@ void Pistol::update(GLFWwindow* window, const Camera& camera,
             muzzlePosition, direction * constants::kBulletSpeed,
             constants::kBulletLifetime));
         muzzleFlashTimer_ = constants::kMuzzleFlashDuration;
-        fireSound_.play();
+        soundManager.play2D("pistol.wav", 0.82f);
     }
     previousFireDown = fireDown;
 }

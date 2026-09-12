@@ -172,6 +172,7 @@ MainScene::MainScene()
       state_(AppState::MainMenu),
       camera_(),
       menuCamera_({0.0f, kCameraGroundHeight, 17.5f}),
+      soundManager_(),
       character_(),
       bigHeadSon_(),
       police_(),
@@ -222,15 +223,22 @@ int MainScene::run() {
         if (state_ == AppState::MainMenu) {
             const MenuAction action =
                 loginScreen_.update(window_, framebufferWidth_, framebufferHeight_);
+            const bool buttonClicked = loginScreen_.buttonClicked();
             if (action == MenuAction::Login) {
                 state_ = AppState::Playing;
                 resetGame();
+                if (buttonClicked) {
+                    soundManager_.play2D("btnclick.wav", 1.0f);
+                }
                 previousFireDown_ =
                     glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) ==
                     GLFW_PRESS;
                 previousJumpDown_ =
                     glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
             } else if (action == MenuAction::Exit) {
+                if (buttonClicked) {
+                    soundManager_.play2D("btnclick.wav", 1.0f);
+                }
                 glfwSetWindowShouldClose(window_, GLFW_TRUE);
             }
 
@@ -268,6 +276,10 @@ bool MainScene::initialize() {
         return false;
     }
     glfwInitialized_ = true;
+    if (!soundManager_.initialize()) {
+        std::cerr << "Failed to initialize audio.\n";
+        return false;
+    }
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* videoMode =
@@ -307,6 +319,9 @@ bool MainScene::initialize() {
 
 void MainScene::resetGame() {
     camera_.reset();
+    soundManager_.stopAll();
+    soundManager_.setListener(camera_.position(), camera_.forward(),
+                              {0.0f, 1.0f, 0.0f});
     glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     camera_.resetLookTracking(window_);
     character_.reset();
@@ -314,7 +329,6 @@ void MainScene::resetGame() {
     police_.reset();
     policeCrouched_.reset();
     zombie_.reset();
-    zombie_.setAudioListener(camera_.position(), camera_.forward());
     miko_.reset();
     policeCrouched_.setPosition({4.8f, 0.0f, 0.6f});
     policeCrouched_.setCrouched(true);
@@ -356,8 +370,10 @@ void MainScene::updateExitPrompt() {
     const ExitPromptLayout layout =
         makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
     if (contains(layout.yesButton, promptMouse_.x, promptMouse_.y)) {
+        soundManager_.play2D("btnclick.wav", 1.0f);
         glfwSetWindowShouldClose(window_, GLFW_TRUE);
     } else if (contains(layout.noButton, promptMouse_.x, promptMouse_.y)) {
+        soundManager_.play2D("btnclick.wav", 1.0f);
         exitPromptVisible_ = false;
         glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         camera_.resetLookTracking(window_);
@@ -375,14 +391,17 @@ void MainScene::updateGameplay(float dt) {
             return cameraPositionBlocked(position);
         });
     camera_.updateAim(window_, dt);
+    soundManager_.setListener(camera_.position(), camera_.forward(),
+                              {0.0f, 1.0f, 0.0f});
+    soundManager_.update();
     character_.update(window_, dt);
     bigHeadSon_.update(dt);
     police_.update(dt);
     policeCrouched_.update(dt);
-    zombie_.setAudioListener(camera_.position(), camera_.forward());
-    zombie_.update(dt);
+    zombie_.update(dt, soundManager_);
     miko_.update(dt);
-    pistol_.update(window_, camera_, bullets_, previousFireDown_, dt);
+    pistol_.update(window_, camera_, bullets_, soundManager_,
+                   previousFireDown_, dt);
     updateImpactEffects(dt);
     updateBullets(dt);
 }
