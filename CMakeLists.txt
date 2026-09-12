@@ -25,12 +25,11 @@ add_executable(
     src/ThreeDUtils.cpp
     src/Camera.cpp
     src/SceneBase.cpp
-    src/SoundBase.cpp
+    src/SoundManager.cpp
     src/miniaudio.cpp
     src/BigHeadSonModel.cpp
     src/PoliceModel.cpp
     src/ZombieModel.cpp
-    src/ZombieAttackSound.cpp
     src/MikoModel.cpp
     src/CharacterModelBase.cpp
     src/CharacterModel.cpp
@@ -38,7 +37,6 @@ add_executable(
     src/PistolBullet.cpp
     src/BulletBase.cpp
     src/Pistol.cpp
-    src/PistolFireSound.cpp
     src/WeaponBase.cpp
     src/BaseUI.cpp
     src/LoginScreen.cpp
@@ -63,3 +61,11 @@ endif()
 if (MSVC)
     target_link_options(Pixel-Game PRIVATE /ENTRY:mainCRTStartup)
 endif()
+
+add_custom_command(
+    TARGET Pixel-Game
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/res"
+            "$<TARGET_FILE_DIR:Pixel-Game>/res"
+)
