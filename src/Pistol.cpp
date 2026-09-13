@@ -739,7 +739,12 @@ Vec3 Pistol::muzzleFrontViewPosition(const Camera& camera,
 }
 
 Vec3 Pistol::muzzleWorldPosition(const Camera& camera) {
-    return camera.toWorld(muzzleFrontViewPosition(camera, 0.0f));
+    Vec3 bulletOrigin = muzzleFrontViewPosition(camera, 0.0f);
+    // Keep collision origin behind the visual muzzle so close-range shots
+    // cannot spawn past an enemy standing directly in front of the player.
+    bulletOrigin.z =
+        std::max(bulletOrigin.z, -constants::kPistolBulletOriginDepth);
+    return camera.toWorld(bulletOrigin);
 }
 
 void Pistol::drawFirstPersonHandBack() {

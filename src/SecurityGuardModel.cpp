@@ -19,12 +19,19 @@ constexpr float kGuardLegTop = 0.92f;
 constexpr float kGuardWaistTop = 1.86f;
 constexpr float kGuardHealthBarHeight = 3.05f;
 constexpr float kDeathDuration = 0.85f;
-constexpr float kGuardAttackDistance = 1.85f;
+constexpr float kGuardAttackDistance = 1.50f;
 constexpr float kGuardStopDistance = 1.34f;
-constexpr float kGuardAttackDuration = 0.72f;
-constexpr float kGuardAttackHitStart = 0.26f;
+constexpr float kGuardAttackDuration = 0.82f;
+constexpr float kGuardAttackLungeStart = 0.10f;
+constexpr float kGuardAttackLungeEnd = 0.38f;
+constexpr float kGuardAttackHitStart = 0.36f;
 constexpr float kGuardAlertDuration = 3.5f;
 constexpr float kGuardAttackCooldown = 0.62f;
+
+float smoothStep01(float value) {
+    const float t = std::clamp(value, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
 
 }  // namespace
 
@@ -96,18 +103,49 @@ int SecurityGuardModel::update(
     }
 
     if (state_ == SecurityGuardState::Attacking) {
+        const float previousAttackTimer = attackTimer_;
         attackTimer_ += dt;
-        animationPhase_ += dt * 16.0f;
-        if (playerDistance > 0.001f) {
+
+        const float lungeStart =
+            std::max(previousAttackTimer, kGuardAttackLungeStart);
+        const float lungeEnd =
+            std::min(attackTimer_, kGuardAttackLungeEnd);
+        if (lungeEnd > lungeStart) {
+            const float lungeDt = lungeEnd - lungeStart;
+            const float lungeProgressStart = std::clamp(
+                (lungeStart - kGuardAttackLungeStart) /
+                    (kGuardAttackLungeEnd - kGuardAttackLungeStart),
+                0.0f, 1.0f);
+            const float lungeProgressEnd = std::clamp(
+                (lungeEnd - kGuardAttackLungeStart) /
+                    (kGuardAttackLungeEnd - kGuardAttackLungeStart),
+                0.0f, 1.0f);
+            const float lungeSpeed =
+                (attackLungeSpeedAtProgress(lungeProgressStart) +
+                 attackLungeSpeedAtProgress(lungeProgressEnd)) *
+                0.5f;
+            if (moveTo(playerPosition, lungeSpeed * lungeDt, collisionTest)) {
+                animationPhase_ += lungeDt * 24.0f;
+            }
+        }
+
+        animationPhase_ += dt * 14.0f;
+        const Vec3 currentPlayerDirection{
+            playerPosition.x - position_.x, 0.0f,
+            playerPosition.z - position_.z};
+        const float currentPlayerDistance =
+            ThreeDUtils::length(currentPlayerDirection);
+        if (currentPlayerDistance > 0.001f) {
             yawDegrees_ =
-                std::atan2(playerDirection.x, playerDirection.z) * 180.0f /
-                kPi;
+                std::atan2(currentPlayerDirection.x,
+                           currentPlayerDirection.z) *
+                180.0f / kPi;
         }
 
         int damage = 0;
         if (!attackHit_ && attackTimer_ >= kGuardAttackHitStart) {
             attackHit_ = true;
-            if (playerDistance <= kGuardAttackDistance + 0.20f) {
+            if (currentPlayerDistance <= kGuardAttackDistance + 0.20f) {
                 damage = batonDamageForDifficulty(difficulty_);
             }
         }
@@ -164,10 +202,27 @@ int SecurityGuardModel::update(
 void SecurityGuardModel::render() const {
     const float deathProgress =
         alive_ ? 0.0f : std::clamp(deathTimer_ / kDeathDuration, 0.0f, 1.0f);
+    const bool attackActive = alive_ &&
+                              state_ == SecurityGuardState::Attacking;
+    const float attackProgress =
+        attackActive
+            ? std::clamp(attackTimer_ / kGuardAttackDuration, 0.0f, 1.0f)
+            : 0.0f;
+    const float attackLungeProgress =
+        attackActive
+            ? std::clamp((attackProgress - kGuardAttackLungeStart /
+                                           kGuardAttackDuration) /
+                             ((kGuardAttackLungeEnd -
+                               kGuardAttackLungeStart) /
+                              kGuardAttackDuration),
+                         0.0f, 1.0f)
+            : 0.0f;
     const float legSwing =
         alive_ && (patrolling_ || state_ == SecurityGuardState::Chasing)
             ? std::sin(animationPhase_) * 0.08f
-            : 0.0f;
+            : (attackActive
+                   ? std::sin(attackLungeProgress * kPi) * 0.13f
+                   : 0.0f);
 
     const Color uniform =
         role_ == SecurityGuardRole::Captain ? Color{0.42f, 0.16f, 0.12f}
@@ -187,6 +242,27 @@ void SecurityGuardModel::render() const {
     if (deathProgress > 0.0f) {
         glTranslatef(0.0f, 0.0f, 0.45f * deathProgress);
         glRotatef(-78.0f * deathProgress, 1.0f, 0.0f, 0.0f);
+    } else if (attackActive) {
+        float attackLean = 0.0f;
+        float attackBodyOffset = 0.0f;
+        if (attackProgress < 0.20f) {
+            const float phase =
+                smoothStep01(attackProgress / 0.20f);
+            attackLean = -7.0f * phase;
+            attackBodyOffset = -0.04f * phase;
+        } else if (attackProgress < 0.52f) {
+            const float phase =
+                smoothStep01((attackProgress - 0.20f) / 0.32f);
+            attackLean = -7.0f + 15.0f * phase;
+            attackBodyOffset = -0.04f + 0.11f * phase;
+        } else {
+            const float phase =
+                smoothStep01((attackProgress - 0.52f) / 0.48f);
+            attackLean = 8.0f * (1.0f - phase);
+            attackBodyOffset = 0.07f * (1.0f - phase);
+        }
+        glTranslatef(0.0f, 0.0f, attackBodyOffset);
+        glRotatef(attackLean, 1.0f, 0.0f, 0.0f);
     }
 
     ThreeDUtils::drawCube({0.0f, 1.48f, 0.0f},
@@ -213,23 +289,62 @@ void SecurityGuardModel::render() const {
     ThreeDUtils::drawCube({0.29f, 0.08f - legSwing, 0.06f},
                           {0.42f, 0.18f, 0.62f}, kPoliceShoe);
 
+    float attackArmLift = 0.0f;
+    float attackArmForward = 0.0f;
+    if (attackActive) {
+        if (attackProgress < 0.20f) {
+            const float phase =
+                smoothStep01(attackProgress / 0.20f);
+            attackArmLift = 0.24f * phase;
+            attackArmForward = -0.10f * phase;
+        } else if (attackProgress < 0.52f) {
+            const float phase =
+                smoothStep01((attackProgress - 0.20f) / 0.32f);
+            attackArmLift = 0.24f - 0.30f * phase;
+            attackArmForward = -0.10f + 0.30f * phase;
+        } else {
+            const float phase =
+                smoothStep01((attackProgress - 0.52f) / 0.48f);
+            attackArmLift = -0.06f * (1.0f - phase);
+            attackArmForward = 0.20f * (1.0f - phase);
+        }
+    }
+
     ThreeDUtils::drawCube({-0.70f, 1.44f, 0.0f},
                           {0.30f, 0.92f, 0.32f}, uniform);
-    ThreeDUtils::drawCube({0.70f, 1.44f, 0.0f},
-                          {0.30f, 0.92f, 0.32f}, uniform);
+    ThreeDUtils::drawCube(
+        {0.70f, 1.44f + attackArmLift, attackArmForward},
+        {0.30f, 0.92f, 0.32f}, uniform);
     ThreeDUtils::drawCube({-0.70f, 0.96f, 0.05f},
                           {0.26f, 0.30f, 0.32f}, kPoliceSkin);
-    ThreeDUtils::drawCube({0.70f, 0.96f, 0.05f},
-                          {0.26f, 0.30f, 0.32f}, kPoliceSkin);
+    ThreeDUtils::drawCube(
+        {0.70f, 0.96f + attackArmLift, 0.05f + attackArmForward},
+        {0.26f, 0.30f, 0.32f}, kPoliceSkin);
 
     glPushMatrix();
-    glTranslatef(0.74f, 1.08f, 0.17f);
+    glTranslatef(0.74f, 1.08f + attackArmLift,
+                 0.17f + attackArmForward);
     float batonAngle = -24.0f;
-    if (state_ == SecurityGuardState::Attacking) {
-        const float attackProgress =
-            std::clamp(attackTimer_ / kGuardAttackDuration, 0.0f, 1.0f);
-        batonAngle = -52.0f + std::sin(attackProgress * kPi) * 125.0f;
+    float batonPitch = 0.0f;
+    if (attackActive) {
+        if (attackProgress < 0.20f) {
+            const float phase =
+                smoothStep01(attackProgress / 0.20f);
+            batonAngle = -24.0f - 94.0f * phase;
+            batonPitch = 18.0f * phase;
+        } else if (attackProgress < 0.52f) {
+            const float phase =
+                smoothStep01((attackProgress - 0.20f) / 0.32f);
+            batonAngle = -118.0f + 218.0f * phase;
+            batonPitch = 18.0f - 88.0f * phase;
+        } else {
+            const float phase =
+                smoothStep01((attackProgress - 0.52f) / 0.48f);
+            batonAngle = 100.0f - 124.0f * phase;
+            batonPitch = -70.0f * (1.0f - phase);
+        }
     }
+    glRotatef(batonPitch, 1.0f, 0.0f, 0.0f);
     glRotatef(batonAngle, 0.0f, 0.0f, 1.0f);
     ThreeDUtils::drawCube({0.0f, -0.18f, 0.0f},
                           {0.14f, 0.34f, 0.14f}, kPoliceBaton);
@@ -476,6 +591,38 @@ float SecurityGuardModel::chaseSpeedForDifficulty(
             return role_ == SecurityGuardRole::Captain ? 3.10f : 2.70f;
     }
     return 2.35f;
+}
+
+float SecurityGuardModel::attackLungeSpeedForDifficulty(
+    Difficulty difficulty) const {
+    switch (difficulty) {
+        case Difficulty::Easy:
+            return role_ == SecurityGuardRole::Captain ? 5.80f : 5.20f;
+        case Difficulty::Normal:
+            return role_ == SecurityGuardRole::Captain ? 6.60f : 6.00f;
+        case Difficulty::Hard:
+            return role_ == SecurityGuardRole::Captain ? 7.40f : 6.80f;
+    }
+    return 6.00f;
+}
+
+float SecurityGuardModel::attackLungeSpeedAtProgress(float progress) const {
+    const float normalizedProgress = std::clamp(progress, 0.0f, 1.0f);
+    const float peakSpeed = attackLungeSpeedForDifficulty(difficulty_);
+
+    if (normalizedProgress < 0.18f) {
+        return peakSpeed *
+               smoothStep01(normalizedProgress / 0.18f);
+    }
+    if (normalizedProgress < 0.70f) {
+        const float plateauProgress =
+            smoothStep01((normalizedProgress - 0.18f) / 0.52f);
+        return peakSpeed * (1.12f + 0.08f * plateauProgress);
+    }
+
+    return peakSpeed * 1.20f *
+           (1.0f -
+            smoothStep01((normalizedProgress - 0.70f) / 0.30f));
 }
 
 void SecurityGuardModel::updatePatrol(

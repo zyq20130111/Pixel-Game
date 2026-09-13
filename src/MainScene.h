@@ -34,7 +34,8 @@ private:
     void updateGameplay(float dt);
     void updateBullets(float dt);
     void updateImpactEffects(float dt);
-    bool cameraPositionBlocked(const Vec3& position) const;
+    bool cameraPositionBlocked(const Vec3& position,
+                               const Vec3& currentPosition) const;
     void renderFrame(const Camera& camera, bool showPistol);
     void renderExitPrompt() const;
     void renderScene() const;
@@ -47,6 +48,7 @@ private:
     static Vec3 pointOnSegment(const Vec3& start, const Vec3& end, float t);
     void spawnImpactEffect(const Vec3& position, ImpactType type);
     void renderGroundImpactEffect(const ImpactEffect& effect) const;
+    void renderGeometryImpactEffect(const ImpactEffect& effect) const;
     void renderCharacterImpactEffect(const ImpactEffect& effect) const;
 
     static void updateWindowTitle(GLFWwindow* window, AppState state);

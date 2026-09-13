@@ -19,10 +19,12 @@ public:
     ParkingLotScene();
 
     void reset(Difficulty difficulty);
-    int update(float dt, const Vec3& playerPosition);
+    int update(float dt, const Vec3& playerPosition,
+               bool playerFired = false);
     void render() const;
 
-    bool cameraPositionBlocked(const Vec3& position) const;
+    bool cameraPositionBlocked(const Vec3& position,
+                               const Vec3& currentPosition) const;
     bool segmentHitsGeometry(const Vec3& start, const Vec3& end,
                              float& hitT) const;
     bool segmentHitsGuard(const Vec3& start, const Vec3& end, float& hitT,
@@ -71,6 +73,7 @@ private:
     bool elevatorOpen_;
     bool levelComplete_;
     float elevatorOpenAmount_;
+    float groupAlertTimer_;
     Vec3 accessCardPosition_;
     Difficulty difficulty_;
     std::array<SecurityGuardModel, kGuardCount> guards_;

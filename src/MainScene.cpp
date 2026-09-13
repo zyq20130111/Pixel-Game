@@ -359,15 +359,19 @@ void MainScene::updateGameplay(float dt) {
     camera_.update(
         window_, dt, previousJumpDown_,
         [this](const Vec3& position) {
-            return cameraPositionBlocked(position);
+            return cameraPositionBlocked(position, camera_.position());
         });
     camera_.updateAim(window_, dt);
     soundManager_.setListener(camera_.position(), camera_.forward(),
                               {0.0f, 1.0f, 0.0f});
     soundManager_.update();
+    const bool fireDown =
+        glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    const bool playerFired = fireDown && !previousFireDown_;
     pistol_.update(window_, camera_, bullets_, soundManager_,
                    previousFireDown_, dt);
-    const int playerDamage = parkingLotScene_.update(dt, camera_.position());
+    const int playerDamage =
+        parkingLotScene_.update(dt, camera_.position(), playerFired);
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
         playerDamageFlashTimer_ = 0.32f;
@@ -420,7 +424,7 @@ void MainScene::updateBullets(float dt) {
                                                   geometryHitT) &&
             geometryHitT < closestHitT) {
             hit = true;
-            hitType = ImpactType::Ground;
+            hitType = ImpactType::Geometry;
             closestHitT = geometryHitT;
         }
 
@@ -470,8 +474,9 @@ void MainScene::updateImpactEffects(float dt) {
         impactEffects_.end());
 }
 
-bool MainScene::cameraPositionBlocked(const Vec3& position) const {
-    return parkingLotScene_.cameraPositionBlocked(position);
+bool MainScene::cameraPositionBlocked(const Vec3& position,
+                                       const Vec3& currentPosition) const {
+    return parkingLotScene_.cameraPositionBlocked(position, currentPosition);
 }
 
 void MainScene::renderFrame(const Camera& camera, bool showPistol) {
@@ -584,6 +589,8 @@ void MainScene::renderImpactEffects() const {
     for (const ImpactEffect& effect : impactEffects_) {
         if (effect.type == ImpactType::Ground) {
             renderGroundImpactEffect(effect);
+        } else if (effect.type == ImpactType::Geometry) {
+            renderGeometryImpactEffect(effect);
         } else {
             renderCharacterImpactEffect(effect);
         }
@@ -658,7 +665,7 @@ void MainScene::renderParkingHud() const {
     const float panelWidth = std::min(350.0f * uiScale,
                                       static_cast<float>(framebufferWidth_) -
                                           margin * 2.0f);
-    const float panelHeight = 174.0f * uiScale;
+    const float panelHeight = 196.0f * uiScale;
     const Rect panel{margin, margin, panelWidth, panelHeight};
     const Color panelColor{0.03f, 0.07f, 0.11f};
     const Color panelAccent{0.16f, 0.64f, 0.72f};
@@ -734,6 +741,35 @@ void MainScene::renderParkingHud() const {
                           panel.y + 103.0f * uiScale, textScale,
                           healthColor);
 
+    const Rect healthBar{
+        panel.x + 14.0f * uiScale,
+        panel.y + 124.0f * uiScale,
+        panel.width - 28.0f * uiScale,
+        13.0f * uiScale};
+    ThreeDUtils::drawRect2D(
+        {healthBar.x + 2.0f * uiScale,
+         healthBar.y + 3.0f * uiScale,
+         healthBar.width,
+         healthBar.height},
+        kInkColor, 0.42f);
+    ThreeDUtils::drawRect2D(healthBar, kHealthBarBack, 0.95f);
+    if (healthRatio > 0.0f) {
+        ThreeDUtils::drawRect2D(
+            {healthBar.x,
+             healthBar.y,
+             healthBar.width * healthRatio,
+             healthBar.height},
+            healthColor, 0.98f);
+        ThreeDUtils::drawRect2D(
+            {healthBar.x,
+             healthBar.y,
+             healthBar.width * healthRatio,
+             std::max(1.0f, 2.0f * uiScale)},
+            ThreeDUtils::shade(healthColor, 1.22f), 0.95f);
+    }
+    ThreeDUtils::drawFrame2D(
+        healthBar, kInkColor, std::max(1.0f, 2.0f * uiScale));
+
     std::string prompt;
     Color promptColor = mutedColor;
     if (playerDown_) {
@@ -759,7 +795,7 @@ void MainScene::renderParkingHud() const {
         prompt = "REACH THE ELEVATOR";
     }
     ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
-                          panel.y + 135.0f * uiScale, textScale, promptColor);
+                          panel.y + 151.0f * uiScale, textScale, promptColor);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
@@ -826,6 +862,36 @@ void MainScene::renderGroundImpactEffect(const ImpactEffect& effect) const {
         ThreeDUtils::drawCube(
             {base.x + particle.x * spread,
              base.y + 0.04f + particle.y * t,
+             base.z + particle.z * spread},
+            {size, size, size}, color);
+    }
+}
+
+void MainScene::renderGeometryImpactEffect(
+    const ImpactEffect& effect) const {
+    const float t =
+        std::clamp(effect.age / effect.duration, 0.0f, 1.0f);
+    const float life = 1.0f - t;
+    const float spread = 0.14f + 0.42f * t;
+    const Vec3& base = effect.position;
+
+    // Geometry impacts must stay at the actual AABB intersection point.
+    // Unlike a ground impact, the surface can be at any world-space height.
+    ThreeDUtils::drawCube(base, {0.16f * life, 0.16f * life, 0.16f * life},
+                          kImpactSpark);
+
+    const std::array<Vec3, 6> particles{
+        Vec3{0.62f, 0.12f, 0.08f},  Vec3{-0.56f, 0.18f, -0.04f},
+        Vec3{0.08f, 0.58f, 0.16f},  Vec3{-0.10f, -0.46f, 0.12f},
+        Vec3{0.16f, 0.08f, -0.62f}, Vec3{-0.12f, 0.04f, 0.54f},
+    };
+    for (std::size_t i = 0; i < particles.size(); ++i) {
+        const Vec3& particle = particles[i];
+        const float size = (i % 2 == 0 ? 0.10f : 0.075f) * life;
+        const Color color = i % 2 == 0 ? kImpactSpark : kImpactDust;
+        ThreeDUtils::drawCube(
+            {base.x + particle.x * spread,
+             base.y + particle.y * spread,
              base.z + particle.z * spread},
             {size, size, size}, color);
     }

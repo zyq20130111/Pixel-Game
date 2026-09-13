@@ -61,6 +61,8 @@ private:
     int maxHealthForDifficulty(Difficulty difficulty) const;
     int batonDamageForDifficulty(Difficulty difficulty) const;
     float chaseSpeedForDifficulty(Difficulty difficulty) const;
+    float attackLungeSpeedForDifficulty(Difficulty difficulty) const;
+    float attackLungeSpeedAtProgress(float progress) const;
     void updatePatrol(float dt, const MovementCollisionTest& collisionTest);
     bool moveTo(const Vec3& target, float maxDistance,
                 const MovementCollisionTest& collisionTest);

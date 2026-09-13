@@ -25,6 +25,7 @@ constexpr float kGuardEyeHeight = 2.25f;
 constexpr float kGuardSightDistance = 15.0f;
 constexpr float kGuardCollisionRadius = 0.62f;
 constexpr float kGuardPlayerClearance = 0.92f;
+constexpr float kGroupAlertDuration = 3.5f;
 
 constexpr ParkingLotScene::Box kSolidBoxes[] = {
     {{-6.0f, 1.35f, 0.1f}, {1.25f, 2.7f, 1.25f}},
@@ -76,6 +77,7 @@ ParkingLotScene::ParkingLotScene()
       elevatorOpen_(false),
       levelComplete_(false),
       elevatorOpenAmount_(0.0f),
+      groupAlertTimer_(0.0f),
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
       difficulty_(Difficulty::Normal),
       guards_{SecurityGuardModel(SecurityGuardRole::Guard),
@@ -89,6 +91,7 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     elevatorOpen_ = false;
     levelComplete_ = false;
     elevatorOpenAmount_ = 0.0f;
+    groupAlertTimer_ = 0.0f;
     accessCardPosition_ = {0.0f, 1.1f, -6.6f};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
@@ -115,12 +118,31 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     guards_[2].reset();
 }
 
-int ParkingLotScene::update(float dt, const Vec3& playerPosition) {
+int ParkingLotScene::update(float dt, const Vec3& playerPosition,
+                            bool playerFired) {
+    std::array<bool, kGuardCount> guardSeesPlayer{};
+    bool directThreatDetected = false;
+    for (std::size_t index = 0; index < guards_.size(); ++index) {
+        guardSeesPlayer[index] =
+            guards_[index].alive() &&
+            canGuardSeePlayer(guards_[index], playerPosition);
+        directThreatDetected =
+            directThreatDetected || guardSeesPlayer[index];
+    }
+
+    if (playerFired || directThreatDetected) {
+        groupAlertTimer_ = kGroupAlertDuration;
+    } else {
+        groupAlertTimer_ = std::max(0.0f, groupAlertTimer_ - dt);
+    }
+    const bool groupAlertActive = groupAlertTimer_ > 0.0f;
+
     int playerDamage = 0;
     for (std::size_t index = 0; index < guards_.size(); ++index) {
         SecurityGuardModel& guard = guards_[index];
         const bool playerVisible =
-            guard.alive() && canGuardSeePlayer(guard, playerPosition);
+            guard.alive() &&
+            (guardSeesPlayer[index] || groupAlertActive);
         playerDamage += guard.update(
             dt, playerPosition, playerVisible,
             [this, index, &playerPosition](const Vec3& position) {
@@ -159,7 +181,8 @@ void ParkingLotScene::render() const {
     drawAccessCard();
 }
 
-bool ParkingLotScene::cameraPositionBlocked(const Vec3& position) const {
+bool ParkingLotScene::cameraPositionBlocked(
+    const Vec3& position, const Vec3& currentPosition) const {
     if (position.x < -kRoomHalfWidth + kCameraRadius ||
         position.x > kRoomHalfWidth - kCameraRadius) {
         return true;
@@ -194,9 +217,26 @@ bool ParkingLotScene::cameraPositionBlocked(const Vec3& position) const {
             continue;
         }
         const Vec3& guardPosition = guard.position();
-        if (circleIntersectsBox(position.x, position.z, kCameraRadius,
-                                {{guardPosition.x, 1.3f, guardPosition.z},
-                                 {1.15f, 2.6f, 1.0f}})) {
+        const Box guardCollisionBox{
+            {guardPosition.x, 1.3f, guardPosition.z},
+            {1.15f, 2.6f, 1.0f}};
+        if (!circleIntersectsBox(position.x, position.z, kCameraRadius,
+                                 guardCollisionBox)) {
+            continue;
+        }
+
+        // A guard can pin the player against its collision box during an
+        // attack. Allow movement that increases the distance from that guard
+        // so the player can escape, while still blocking movement into it.
+        const bool currentPositionOverlaps =
+            circleIntersectsBox(currentPosition.x, currentPosition.z,
+                                kCameraRadius, guardCollisionBox);
+        const float currentDistance =
+            distanceSquaredOnFloor(currentPosition, guardPosition);
+        const float candidateDistance =
+            distanceSquaredOnFloor(position, guardPosition);
+        if (!currentPositionOverlaps ||
+            candidateDistance <= currentDistance + 0.0001f) {
             return true;
         }
     }

@@ -43,6 +43,7 @@ struct MouseState {
 
 enum class ImpactType {
     Ground,
+    Geometry,
     Character,
 };
 

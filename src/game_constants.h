@@ -175,6 +175,7 @@ inline constexpr Vec3 kPistolWeaponBase{0.42f, -0.40f, -1.35f};
 inline constexpr Vec3 kPistolWeaponAimBase{0.0f, -0.23f, -1.18f};
 inline constexpr Vec3 kPistolMuzzleLocal{0.0f, 0.12f, -0.86f};
 inline constexpr float kMuzzleFlashForwardOffset = 0.24f;
+inline constexpr float kPistolBulletOriginDepth = 0.55f;
 inline constexpr Vec3 kZombieDefaultPosition{-5.4f, 0.0f, -4.6f};
 inline constexpr float kZombieCollisionHalfWidth = 0.78f;
 inline constexpr float kZombieCollisionHalfDepth = 0.70f;
