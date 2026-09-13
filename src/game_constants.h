@@ -57,6 +57,8 @@ inline constexpr Color kWaterHighlight{0.48f, 0.91f, 0.98f};
 inline constexpr Color kInkColor{0.07f, 0.11f, 0.20f};
 inline constexpr Color kPanelTop{1.0f, 0.90f, 0.55f};
 inline constexpr Color kPanelBottom{0.25f, 0.70f, 0.73f};
+inline constexpr Color kPanelShadow{0.04f, 0.19f, 0.27f};
+inline constexpr Color kPanelOutline{0.04f, 0.16f, 0.24f};
 inline constexpr Color kButtonStart{0.22f, 0.70f, 0.34f};
 inline constexpr Color kButtonExit{0.92f, 0.25f, 0.28f};
 inline constexpr Color kSunRay{0.94f, 0.34f, 0.08f};
