@@ -72,7 +72,12 @@ private:
     bool previousFireDown_;
     bool previousJumpDown_;
     bool previousInteractDown_;
+    bool previousRestartDown_;
     float parkingHintTimer_;
+    int playerHealth_;
+    int playerMaxHealth_;
+    float playerDamageFlashTimer_;
+    bool playerDown_;
     bool previousEscapeDown_;
     bool exitPromptVisible_;
     bool previousPromptMouseDown_;

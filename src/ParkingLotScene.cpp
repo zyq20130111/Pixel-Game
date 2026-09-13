@@ -21,6 +21,10 @@ constexpr float kWallThickness = 0.45f;
 constexpr float kGateHalfWidth = 3.6f;
 constexpr float kElevatorDoorHalfWidth = 2.3f;
 constexpr float kElevatorDistance = 3.4f;
+constexpr float kGuardEyeHeight = 2.25f;
+constexpr float kGuardSightDistance = 15.0f;
+constexpr float kGuardCollisionRadius = 0.62f;
+constexpr float kGuardPlayerClearance = 0.92f;
 
 constexpr ParkingLotScene::Box kSolidBoxes[] = {
     {{-6.0f, 1.35f, 0.1f}, {1.25f, 2.7f, 1.25f}},
@@ -111,9 +115,17 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     guards_[2].reset();
 }
 
-void ParkingLotScene::update(float dt) {
-    for (SecurityGuardModel& guard : guards_) {
-        guard.update(dt);
+int ParkingLotScene::update(float dt, const Vec3& playerPosition) {
+    int playerDamage = 0;
+    for (std::size_t index = 0; index < guards_.size(); ++index) {
+        SecurityGuardModel& guard = guards_[index];
+        const bool playerVisible =
+            guard.alive() && canGuardSeePlayer(guard, playerPosition);
+        playerDamage += guard.update(
+            dt, playerPosition, playerVisible,
+            [this, index, &playerPosition](const Vec3& position) {
+                return guardPositionBlocked(position, index, playerPosition);
+            });
     }
 
     if (guards_[2].defeated()) {
@@ -126,6 +138,7 @@ void ParkingLotScene::update(float dt) {
             levelComplete_ = true;
         }
     }
+    return playerDamage;
 }
 
 void ParkingLotScene::render() const {
@@ -371,6 +384,79 @@ bool ParkingLotScene::segmentIntersectsAabb(const Vec3& start, const Vec3& end,
 Vec3 ParkingLotScene::pointOnSegment(const Vec3& start, const Vec3& end,
                                      float t) {
     return start + (end - start) * t;
+}
+
+bool ParkingLotScene::canGuardSeePlayer(
+    const SecurityGuardModel& guard, const Vec3& playerPosition) const {
+    const Vec3 toPlayer{playerPosition.x - guard.position().x, 0.0f,
+                        playerPosition.z - guard.position().z};
+    const float distance = ThreeDUtils::length(toPlayer);
+    if (distance <= 0.001f || distance > kGuardSightDistance) {
+        return false;
+    }
+
+    const Vec3 direction = ThreeDUtils::normalize(toPlayer);
+    const float yawRadians =
+        guard.yawDegrees() * kPi / 180.0f;
+    const Vec3 facing{std::sin(yawRadians), 0.0f,
+                      std::cos(yawRadians)};
+    constexpr float kCosSightHalfAngle =
+        0.573576436351046f;  // cos(55 degrees)
+    if (ThreeDUtils::dot(direction, {facing.x, 0.0f, facing.z}) <
+        kCosSightHalfAngle) {
+        return false;
+    }
+
+    const Vec3 guardEye{guard.position().x, guard.position().y +
+                                             kGuardEyeHeight,
+                        guard.position().z};
+    const Vec3 playerEye{playerPosition.x, playerPosition.y,
+                         playerPosition.z};
+    float hitT = 0.0f;
+    return !segmentHitsGeometry(guardEye, playerEye, hitT);
+}
+
+bool ParkingLotScene::guardPositionBlocked(
+    const Vec3& position, std::size_t movingGuardIndex,
+    const Vec3& playerPosition) const {
+    if (position.x < -kRoomHalfWidth + kGuardCollisionRadius ||
+        position.x > kRoomHalfWidth - kGuardCollisionRadius ||
+        position.z < -kRoomHalfDepth + kGuardCollisionRadius ||
+        position.z > kRoomHalfDepth - kGuardCollisionRadius) {
+        return true;
+    }
+
+    if (distanceSquaredOnFloor(position, playerPosition) <
+        kGuardPlayerClearance * kGuardPlayerClearance) {
+        return true;
+    }
+
+    for (const Box& box : kSolidBoxes) {
+        if (circleIntersectsBox(position.x, position.z,
+                                kGuardCollisionRadius, box)) {
+            return true;
+        }
+    }
+
+    if (!elevatorOpen_ &&
+        circleIntersectsBox(position.x, position.z, kGuardCollisionRadius,
+                            {{0.0f, 1.3f, -9.35f},
+                             {2.0f * kElevatorDoorHalfWidth, 2.6f, 0.35f}})) {
+        return true;
+    }
+
+    for (std::size_t index = 0; index < guards_.size(); ++index) {
+        if (index == movingGuardIndex || !guards_[index].alive()) {
+            continue;
+        }
+        const Vec3& other = guards_[index].position();
+        const float minDistance = kGuardCollisionRadius * 2.0f;
+        if (distanceSquaredOnFloor(position, other) <
+            minDistance * minDistance) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void ParkingLotScene::drawFloor() const {

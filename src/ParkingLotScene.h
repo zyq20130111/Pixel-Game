@@ -19,7 +19,7 @@ public:
     ParkingLotScene();
 
     void reset(Difficulty difficulty);
-    void update(float dt);
+    int update(float dt, const Vec3& playerPosition);
     void render() const;
 
     bool cameraPositionBlocked(const Vec3& position) const;
@@ -47,6 +47,11 @@ private:
     static bool segmentIntersectsAabb(const Vec3& start, const Vec3& end,
                                       const Box& box, float& hitT);
     static Vec3 pointOnSegment(const Vec3& start, const Vec3& end, float t);
+    bool canGuardSeePlayer(const SecurityGuardModel& guard,
+                           const Vec3& playerPosition) const;
+    bool guardPositionBlocked(const Vec3& position,
+                              std::size_t movingGuardIndex,
+                              const Vec3& playerPosition) const;
 
     void drawFloor() const;
     void drawWalls() const;

@@ -99,6 +99,8 @@ inline constexpr Color kPoliceCapDark{0.03f, 0.07f, 0.18f};
 inline constexpr Color kPoliceBadge{1.0f, 0.82f, 0.18f};
 inline constexpr Color kPoliceBelt{0.05f, 0.05f, 0.08f};
 inline constexpr Color kPoliceShoe{0.04f, 0.04f, 0.06f};
+inline constexpr Color kPoliceBaton{0.08f, 0.06f, 0.05f};
+inline constexpr Color kPoliceBatonHighlight{0.72f, 0.52f, 0.24f};
 inline constexpr Color kPoliceEyeWhite{1.0f, 1.0f, 0.92f};
 inline constexpr Color kPoliceEye{0.03f, 0.04f, 0.10f};
 inline constexpr Color kPoliceMouth{0.38f, 0.06f, 0.10f};

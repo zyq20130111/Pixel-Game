@@ -2,6 +2,7 @@
 
 #include "types.h"
 
+#include <functional>
 #include <vector>
 
 namespace pixel_world {
@@ -11,13 +12,23 @@ enum class SecurityGuardRole {
     Captain,
 };
 
+enum class SecurityGuardState {
+    Patrol,
+    Chasing,
+    Attacking,
+};
+
 class SecurityGuardModel final {
 public:
+    using MovementCollisionTest = std::function<bool(const Vec3&)>;
+
     explicit SecurityGuardModel(
         SecurityGuardRole role = SecurityGuardRole::Guard);
 
     void reset();
     void update(float dt);
+    int update(float dt, const Vec3& playerPosition, bool playerVisible,
+               const MovementCollisionTest& collisionTest);
     void render() const;
     void renderHealthBar() const;
 
@@ -31,8 +42,11 @@ public:
     bool alive() const;
     bool defeated() const;
     bool isCaptain() const;
+    bool playerDetected() const;
+    bool attacking() const;
     int health() const;
     int maxHealth() const;
+    float yawDegrees() const;
 
     bool segmentHit(const Vec3& start, const Vec3& end,
                     float& hitT) const;
@@ -45,6 +59,11 @@ private:
     CharacterHitZone hitZoneForPoint(const Vec3& hitPosition) const;
     static int pistolDamageForZone(CharacterHitZone zone);
     int maxHealthForDifficulty(Difficulty difficulty) const;
+    int batonDamageForDifficulty(Difficulty difficulty) const;
+    float chaseSpeedForDifficulty(Difficulty difficulty) const;
+    void updatePatrol(float dt, const MovementCollisionTest& collisionTest);
+    bool moveTo(const Vec3& target, float maxDistance,
+                const MovementCollisionTest& collisionTest);
 
     SecurityGuardRole role_;
     Difficulty difficulty_;
@@ -58,6 +77,12 @@ private:
     bool patrolling_;
     std::vector<Vec3> patrolWaypoints_;
     std::size_t patrolWaypointIndex_;
+    SecurityGuardState state_;
+    bool playerDetected_;
+    float alertTimer_;
+    float attackTimer_;
+    float attackCooldown_;
+    bool attackHit_;
 };
 
 }  // namespace pixel_world

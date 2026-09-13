@@ -127,7 +127,12 @@ MainScene::MainScene()
       previousFireDown_(false),
       previousJumpDown_(false),
       previousInteractDown_(false),
+      previousRestartDown_(false),
       parkingHintTimer_(0.0f),
+      playerHealth_(kCharacterMaxHp),
+      playerMaxHealth_(kCharacterMaxHp),
+      playerDamageFlashTimer_(0.0f),
+      playerDown_(false),
       previousEscapeDown_(false),
       exitPromptVisible_(false),
       previousPromptMouseDown_(false),
@@ -279,11 +284,17 @@ void MainScene::resetGame() {
     bullets_.clear();
     impactEffects_.clear();
     parkingHintTimer_ = 0.0f;
+    playerMaxHealth_ = kCharacterMaxHp;
+    playerHealth_ = playerMaxHealth_;
+    playerDamageFlashTimer_ = 0.0f;
+    playerDown_ = false;
     exitPromptVisible_ = false;
     previousEscapeDown_ =
         glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
     previousInteractDown_ =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
+    previousRestartDown_ =
+        glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
     previousPromptMouseDown_ =
         glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 }
@@ -333,6 +344,17 @@ void MainScene::updateGameplay(float dt) {
         return;
     }
 
+    const bool restartDown = glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+    if (playerDown_) {
+        if (restartDown && !previousRestartDown_) {
+            resetGame();
+            previousRestartDown_ = restartDown;
+            return;
+        }
+        previousRestartDown_ = restartDown;
+        return;
+    }
+
     camera_.updateLook(window_);
     camera_.update(
         window_, dt, previousJumpDown_,
@@ -345,7 +367,17 @@ void MainScene::updateGameplay(float dt) {
     soundManager_.update();
     pistol_.update(window_, camera_, bullets_, soundManager_,
                    previousFireDown_, dt);
-    parkingLotScene_.update(dt);
+    const int playerDamage = parkingLotScene_.update(dt, camera_.position());
+    if (playerDamage > 0) {
+        playerHealth_ = std::max(0, playerHealth_ - playerDamage);
+        playerDamageFlashTimer_ = 0.32f;
+        if (playerHealth_ <= 0) {
+            playerDown_ = true;
+            previousFireDown_ = false;
+        }
+    }
+    playerDamageFlashTimer_ =
+        std::max(0.0f, playerDamageFlashTimer_ - dt);
     parkingLotScene_.tryCollectAccessCard(camera_.position());
     parkingHintTimer_ = std::max(0.0f, parkingHintTimer_ - dt);
     const bool interactDown =
@@ -358,6 +390,7 @@ void MainScene::updateGameplay(float dt) {
         }
     }
     previousInteractDown_ = interactDown;
+    previousRestartDown_ = restartDown;
     updateImpactEffects(dt);
     updateBullets(dt);
 }
@@ -625,7 +658,7 @@ void MainScene::renderParkingHud() const {
     const float panelWidth = std::min(350.0f * uiScale,
                                       static_cast<float>(framebufferWidth_) -
                                           margin * 2.0f);
-    const float panelHeight = 142.0f * uiScale;
+    const float panelHeight = 174.0f * uiScale;
     const Rect panel{margin, margin, panelWidth, panelHeight};
     const Color panelColor{0.03f, 0.07f, 0.11f};
     const Color panelAccent{0.16f, 0.64f, 0.72f};
@@ -639,6 +672,15 @@ void MainScene::renderParkingHud() const {
     glDepthMask(GL_FALSE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashAlpha =
+            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+        ThreeDUtils::drawRect2D(
+            {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+             static_cast<float>(framebufferHeight_)},
+            dangerColor, flashAlpha);
+    }
 
     ThreeDUtils::drawRect2D(
         {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,
@@ -677,9 +719,27 @@ void MainScene::renderParkingHud() const {
                           parkingLotScene_.accessCardObtained() ? successColor
                                                                  : mutedColor);
 
+    const std::string healthStatus =
+        "HEALTH: " + std::to_string(playerHealth_) + " / " +
+        std::to_string(playerMaxHealth_);
+    const float healthRatio =
+        static_cast<float>(playerHealth_) /
+        static_cast<float>(std::max(1, playerMaxHealth_));
+    const Color healthColor =
+        healthRatio > 0.55f
+            ? successColor
+            : (healthRatio > 0.25f ? Color{1.0f, 0.78f, 0.20f}
+                                   : dangerColor);
+    ThreeDUtils::drawText(healthStatus, panel.x + 14.0f * uiScale,
+                          panel.y + 103.0f * uiScale, textScale,
+                          healthColor);
+
     std::string prompt;
     Color promptColor = mutedColor;
-    if (parkingLotScene_.levelComplete()) {
+    if (playerDown_) {
+        prompt = "PLAYER DOWN  /  R: RESTART";
+        promptColor = dangerColor;
+    } else if (parkingLotScene_.levelComplete()) {
         prompt = "ELEVATOR OPEN  /  LEVEL COMPLETE";
         promptColor = successColor;
     } else if (parkingLotScene_.nearElevator(camera_.position()) &&
@@ -699,7 +759,7 @@ void MainScene::renderParkingHud() const {
         prompt = "REACH THE ELEVATOR";
     }
     ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
-                          panel.y + 108.0f * uiScale, textScale, promptColor);
+                          panel.y + 135.0f * uiScale, textScale, promptColor);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
