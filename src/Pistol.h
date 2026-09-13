@@ -12,7 +12,7 @@ public:
     Pistol();
 
     void reset();
-    void update(GLFWwindow* window, const Camera& camera,
+    bool update(GLFWwindow* window, const Camera& camera,
                 std::vector<std::unique_ptr<BulletBase>>& bullets,
                 SoundManager& soundManager, bool& previousFireDown,
                 float dt) override;

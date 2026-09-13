@@ -601,7 +601,7 @@ void Pistol::reset() {
     muzzleFlashTimer_ = 0.0f;
 }
 
-void Pistol::update(GLFWwindow* window, const Camera& camera,
+bool Pistol::update(GLFWwindow* window, const Camera& camera,
                     std::vector<std::unique_ptr<BulletBase>>& bullets,
                     SoundManager& soundManager, bool& previousFireDown,
                     float dt) {
@@ -609,6 +609,7 @@ void Pistol::update(GLFWwindow* window, const Camera& camera,
 
     const bool fireDown =
         glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    bool fired = false;
     if (fireDown && !previousFireDown) {
         if (bullets.size() >= static_cast<std::size_t>(constants::kMaxBullets)) {
             bullets.erase(bullets.begin());
@@ -623,8 +624,10 @@ void Pistol::update(GLFWwindow* window, const Camera& camera,
             constants::kBulletLifetime));
         muzzleFlashTimer_ = constants::kMuzzleFlashDuration;
         soundManager.play2D("pistol.wav", 0.82f);
+        fired = true;
     }
     previousFireDown = fireDown;
+    return fired;
 }
 
 void Pistol::render(const Camera& camera) const {

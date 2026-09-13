@@ -73,7 +73,7 @@ private:
     bool elevatorOpen_;
     bool levelComplete_;
     float elevatorOpenAmount_;
-    float groupAlertTimer_;
+    bool groupAlerted_;
     Vec3 accessCardPosition_;
     Difficulty difficulty_;
     std::array<SecurityGuardModel, kGuardCount> guards_;

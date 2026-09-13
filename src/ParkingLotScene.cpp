@@ -25,7 +25,6 @@ constexpr float kGuardEyeHeight = 2.25f;
 constexpr float kGuardSightDistance = 15.0f;
 constexpr float kGuardCollisionRadius = 0.62f;
 constexpr float kGuardPlayerClearance = 0.92f;
-constexpr float kGroupAlertDuration = 3.5f;
 
 constexpr ParkingLotScene::Box kSolidBoxes[] = {
     {{-6.0f, 1.35f, 0.1f}, {1.25f, 2.7f, 1.25f}},
@@ -77,7 +76,7 @@ ParkingLotScene::ParkingLotScene()
       elevatorOpen_(false),
       levelComplete_(false),
       elevatorOpenAmount_(0.0f),
-      groupAlertTimer_(0.0f),
+      groupAlerted_(false),
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
       difficulty_(Difficulty::Normal),
       guards_{SecurityGuardModel(SecurityGuardRole::Guard),
@@ -91,7 +90,7 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     elevatorOpen_ = false;
     levelComplete_ = false;
     elevatorOpenAmount_ = 0.0f;
-    groupAlertTimer_ = 0.0f;
+    groupAlerted_ = false;
     accessCardPosition_ = {0.0f, 1.1f, -6.6f};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
@@ -131,11 +130,9 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
     }
 
     if (playerFired || directThreatDetected) {
-        groupAlertTimer_ = kGroupAlertDuration;
-    } else {
-        groupAlertTimer_ = std::max(0.0f, groupAlertTimer_ - dt);
+        groupAlerted_ = true;
     }
-    const bool groupAlertActive = groupAlertTimer_ > 0.0f;
+    const bool groupAlertActive = groupAlerted_;
 
     int playerDamage = 0;
     for (std::size_t index = 0; index < guards_.size(); ++index) {

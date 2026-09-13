@@ -15,7 +15,7 @@ class WeaponBase {
 public:
     virtual ~WeaponBase();
 
-    virtual void update(GLFWwindow* window, const Camera& camera,
+    virtual bool update(GLFWwindow* window, const Camera& camera,
                         std::vector<std::unique_ptr<BulletBase>>& bullets,
                         SoundManager& soundManager, bool& previousFireDown,
                         float dt) = 0;

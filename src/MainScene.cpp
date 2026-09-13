@@ -365,11 +365,9 @@ void MainScene::updateGameplay(float dt) {
     soundManager_.setListener(camera_.position(), camera_.forward(),
                               {0.0f, 1.0f, 0.0f});
     soundManager_.update();
-    const bool fireDown =
-        glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-    const bool playerFired = fireDown && !previousFireDown_;
-    pistol_.update(window_, camera_, bullets_, soundManager_,
-                   previousFireDown_, dt);
+    const bool playerFired =
+        pistol_.update(window_, camera_, bullets_, soundManager_,
+                       previousFireDown_, dt);
     const int playerDamage =
         parkingLotScene_.update(dt, camera_.position(), playerFired);
     if (playerDamage > 0) {
