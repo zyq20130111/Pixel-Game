@@ -610,6 +610,7 @@ void Pistol::render(const Camera& camera) const {
              constants::kPistolScale);
 
     drawFirstPersonHandBack();
+    drawMuzzleFlash(muzzleFlashTimer_);
 
     drawGunBuffer(pistolFrameMesh(), {0.0f, -0.02f, 0.0f}, {},
                   {0.50f, 0.32f, 0.72f});
@@ -643,7 +644,6 @@ void Pistol::render(const Camera& camera) const {
 
     drawIronSights(camera.aimAmount());
     drawFirstPersonHandGrip();
-    drawMuzzleFlash(muzzleFlashTimer_);
 
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
