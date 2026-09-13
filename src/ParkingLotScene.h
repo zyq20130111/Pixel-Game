@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Localization.h"
 #include "SecurityGuardModel.h"
 
 #include <array>
@@ -16,7 +17,7 @@ public:
         Vec3 size;
     };
 
-    ParkingLotScene();
+    explicit ParkingLotScene(Language language = Language::English);
 
     void reset(Difficulty difficulty);
     int update(float dt, const Vec3& playerPosition,
@@ -76,6 +77,7 @@ private:
     float elevatorOpenAmount_;
     bool groupAlerted_;
     Vec3 accessCardPosition_;
+    Language language_;
     Difficulty difficulty_;
     std::array<SecurityGuardModel, kGuardCount> guards_;
 };

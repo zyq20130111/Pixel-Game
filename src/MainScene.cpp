@@ -115,7 +115,7 @@ MainScene::MainScene()
       language_(AppConfig::loadLanguage()),
       camera_(),
       soundManager_(),
-      parkingLotScene_(),
+      parkingLotScene_(language_),
       pistol_(),
       mainUI_(language_),
       difficultyUI_(language_),
@@ -218,7 +218,7 @@ int MainScene::run() {
             }
         }
 
-        updateWindowTitle(window_, state_);
+        updateWindowTitle(window_, state_, language_);
         glfwSwapBuffers(window_);
     }
 
@@ -268,7 +268,7 @@ bool MainScene::initialize() {
     glfwGetFramebufferSize(window_, &framebufferWidth_, &framebufferHeight_);
     ThreeDUtils::framebufferSizeCallback(
         window_, framebufferWidth_, framebufferHeight_);
-    updateWindowTitle(window_, state_);
+    updateWindowTitle(window_, state_, language_);
     return true;
 }
 
@@ -671,6 +671,7 @@ void MainScene::renderParkingHud() const {
     const Color mutedColor{0.65f, 0.78f, 0.78f};
     const Color dangerColor{1.0f, 0.42f, 0.28f};
     const Color successColor{0.42f, 1.0f, 0.58f};
+    const ParkingText& labels = parkingText(language_);
 
     ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
     glDisable(GL_DEPTH_TEST);
@@ -698,18 +699,21 @@ void MainScene::renderParkingHud() const {
 
     const float textScale = std::max(1.0f, 2.0f * uiScale);
     const float titleScale = std::max(1.0f, 2.5f * uiScale);
-    ThreeDUtils::drawText("PARKING LOT  /  OBJECTIVE",
+    ThreeDUtils::drawText(labels.title,
                           panel.x + 14.0f * uiScale,
                           panel.y + 17.0f * uiScale, titleScale, textColor);
 
     const std::string guardStatus =
-        "SECURITY: " + std::to_string(parkingLotScene_.livingGuardCount());
+        std::string(labels.securityLabel) +
+        std::to_string(parkingLotScene_.livingGuardCount());
     const std::string captainStatus =
-        std::string("CAPTAIN: ") +
-        (parkingLotScene_.captainDefeated() ? "DOWN" : "ALIVE");
+        std::string(labels.captainLabel) +
+        (parkingLotScene_.captainDefeated() ? labels.captainDown
+                                             : labels.captainAlive);
     const std::string cardStatus =
-        std::string("ACCESS CARD: ") +
-        (parkingLotScene_.accessCardObtained() ? "OBTAINED" : "REQUIRED");
+        std::string(labels.accessCardLabel) +
+        (parkingLotScene_.accessCardObtained() ? labels.accessCardObtained
+                                               : labels.accessCardRequired);
     ThreeDUtils::drawText(guardStatus, panel.x + 14.0f * uiScale,
                           panel.y + 51.0f * uiScale, textScale,
                           parkingLotScene_.livingGuardCount() == 0
@@ -725,7 +729,7 @@ void MainScene::renderParkingHud() const {
                                                                  : mutedColor);
 
     const std::string healthStatus =
-        "HEALTH: " + std::to_string(playerHealth_) + " / " +
+        std::string(labels.healthLabel) + std::to_string(playerHealth_) + " / " +
         std::to_string(playerMaxHealth_);
     const float healthRatio =
         static_cast<float>(playerHealth_) /
@@ -771,26 +775,27 @@ void MainScene::renderParkingHud() const {
     std::string prompt;
     Color promptColor = mutedColor;
     if (playerDown_) {
-        prompt = "PLAYER DOWN  /  R: RESTART";
+        prompt = labels.playerDownPrompt;
         promptColor = dangerColor;
     } else if (parkingLotScene_.levelComplete()) {
-        prompt = "ELEVATOR OPEN  /  LEVEL COMPLETE";
+        prompt = labels.levelCompletePrompt;
         promptColor = successColor;
     } else if (parkingLotScene_.nearElevator(camera_.position()) &&
                !parkingLotScene_.accessCardObtained()) {
         prompt = parkingHintTimer_ > 0.0f
-                     ? "ACCESS CARD REQUIRED"
-                     : "E: USE ELEVATOR  (CARD REQUIRED)";
+                     ? labels.elevatorCardPrompt
+                     : std::string(labels.elevatorPrompt) +
+                           "  (" + labels.elevatorCardHint + ")";
         promptColor = parkingHintTimer_ > 0.0f ? dangerColor : mutedColor;
     } else if (parkingLotScene_.nearElevator(camera_.position())) {
-        prompt = "E: USE ELEVATOR";
+        prompt = labels.elevatorPrompt;
         promptColor = successColor;
     } else if (!parkingLotScene_.captainDefeated()) {
-        prompt = "ELIMINATE THE CAPTAIN";
+        prompt = labels.eliminateCaptainPrompt;
     } else if (!parkingLotScene_.accessCardObtained()) {
-        prompt = "COLLECT THE ACCESS CARD";
+        prompt = labels.collectAccessCardPrompt;
     } else {
-        prompt = "REACH THE ELEVATOR";
+        prompt = labels.reachElevatorPrompt;
     }
     ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
                           panel.y + 151.0f * uiScale, textScale, promptColor);
@@ -924,23 +929,31 @@ void MainScene::renderCharacterImpactEffect(
     }
 }
 
-void MainScene::updateWindowTitle(GLFWwindow* window, AppState state) {
+void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
+                                  Language language) {
     static std::string lastTitle;
     std::string title;
+    const bool chinese = language == Language::Chinese;
     switch (state) {
         case AppState::MainMenu:
-            title = "Pixel World 3D | Main Menu";
+            title = chinese ? "Pixel World 3D | \xE4\xB8\xBB\xE8\x8F\x9C\xE5\x8D\x95"
+                            : "Pixel World 3D | Main Menu";
             break;
         case AppState::DifficultySelect:
-            title = "Pixel World 3D | Select Difficulty";
+            title = chinese
+                        ? "Pixel World 3D | \xE9\x80\x89\xE6\x8B\xA9\xE9\x9A\xBE\xE5\xBA\xA6"
+                        : "Pixel World 3D | Select Difficulty";
             break;
         case AppState::Loading:
-            title = "Pixel World 3D | Loading";
+            title = chinese ? "Pixel World 3D | \xE5\x8A\xA0\xE8\xBD\xBD\xE4\xB8\xAD"
+                            : "Pixel World 3D | Loading";
             break;
         case AppState::Playing:
-            title =
-                "Pixel World 3D | Mouse look | LMB fire | RMB aim | E elevator | "
-                "Shift run | Space jump | Arrows walk | WASD move | Esc exit";
+            title = chinese
+                        ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
+                        : "Pixel World 3D | Mouse look | LMB fire | RMB aim | "
+                          "E elevator | Shift run | Space jump | Arrows walk | "
+                          "WASD move | Esc exit";
             break;
     }
     if (title == lastTitle) {

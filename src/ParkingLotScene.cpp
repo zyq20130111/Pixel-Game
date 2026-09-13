@@ -70,7 +70,7 @@ float distanceSquaredOnFloor(const Vec3& a, const Vec3& b) {
 
 }  // namespace
 
-ParkingLotScene::ParkingLotScene()
+ParkingLotScene::ParkingLotScene(Language language)
     : captainDefeated_(false),
       accessCardObtained_(false),
       elevatorOpen_(false),
@@ -78,6 +78,7 @@ ParkingLotScene::ParkingLotScene()
       elevatorOpenAmount_(0.0f),
       groupAlerted_(false),
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
+      language_(language),
       difficulty_(Difficulty::Normal),
       guards_{SecurityGuardModel(SecurityGuardRole::Guard),
               SecurityGuardModel(SecurityGuardRole::Guard),
@@ -601,6 +602,7 @@ void ParkingLotScene::drawParkingLines() const {
 }
 
 void ParkingLotScene::drawCar() const {
+    const ParkingText& text = parkingText(language_);
     const float x = -12.0f;
     const float z = -1.8f;
     ThreeDUtils::drawCube({x, 0.72f, z}, {3.4f, 0.78f, 5.7f},
@@ -617,10 +619,11 @@ void ParkingLotScene::drawCar() const {
                                   {0.30f, 0.48f, 0.72f}, kInkColor);
         }
     }
-    drawWorldLabel("CAR", {x, 2.02f, z + 0.1f}, 0.045f, kSignColor);
+    drawWorldLabel(text.carLabel, {x, 2.02f, z + 0.1f}, 0.045f, kSignColor);
 }
 
 void ParkingLotScene::drawTruck() const {
+    const ParkingText& text = parkingText(language_);
     const float x = 12.0f;
     const float z = 1.2f;
     ThreeDUtils::drawCube({x, 1.05f, z}, {4.0f, 1.65f, 7.0f},
@@ -635,10 +638,12 @@ void ParkingLotScene::drawTruck() const {
                                   {0.38f, 0.60f, 0.86f}, kInkColor);
         }
     }
-    drawWorldLabel("TRUCK", {x, 2.95f, z + 1.0f}, 0.045f, kSignColor);
+    drawWorldLabel(text.truckLabel, {x, 2.95f, z + 1.0f}, 0.045f,
+                   kSignColor);
 }
 
 void ParkingLotScene::drawElevator() const {
+    const ParkingText& text = parkingText(language_);
     const Color frame{0.20f, 0.24f, 0.28f};
     const Color elevatorWall{0.33f, 0.37f, 0.40f};
     ThreeDUtils::drawCube({-3.5f, 2.4f, -9.48f},
@@ -658,7 +663,7 @@ void ParkingLotScene::drawElevator() const {
     ThreeDUtils::drawCube({0.0f, 3.15f, -9.12f},
                           {3.35f, 0.30f, 0.10f},
                           elevatorOpen_ ? kButtonStart : kSignColor);
-    drawWorldLabel("ELEVATOR", {0.0f, 3.20f, -9.06f}, 0.045f,
+    drawWorldLabel(text.elevatorLabel, {0.0f, 3.20f, -9.06f}, 0.045f,
                    kInkColor);
 
     const Color readerLight =
@@ -669,10 +674,12 @@ void ParkingLotScene::drawElevator() const {
                           {0.12f, 0.12f, 0.05f}, readerLight);
     ThreeDUtils::drawCube({2.55f, 1.36f, -8.94f},
                           {0.12f, 0.18f, 0.05f}, kHouseWindowLight);
-    drawWorldLabel("CARD", {2.55f, 2.0f, -8.92f}, 0.040f, kSignColor);
+    drawWorldLabel(text.cardReaderLabel, {2.55f, 2.0f, -8.92f}, 0.040f,
+                   kSignColor);
 }
 
 void ParkingLotScene::drawRollerDoor() const {
+    const ParkingText& text = parkingText(language_);
     const float doorTop = 4.65f;
     ThreeDUtils::drawCube({0.0f, doorTop, 9.35f},
                           {7.4f, 0.42f, 0.52f}, kStoneDark);
@@ -688,7 +695,8 @@ void ParkingLotScene::drawRollerDoor() const {
             {x, 2.25f, 9.10f}, {0.44f, 4.0f, 0.07f},
             (stripe % 2 == 0) ? kStoneDark : kSignColor);
     }
-    drawWorldLabel("ENTRY", {0.0f, 4.90f, 9.00f}, 0.050f, kSignColor);
+    drawWorldLabel(text.entryLabel, {0.0f, 4.90f, 9.00f}, 0.050f,
+                   kSignColor);
 }
 
 void ParkingLotScene::drawLighting() const {
@@ -702,6 +710,7 @@ void ParkingLotScene::drawLighting() const {
 }
 
 void ParkingLotScene::drawAccessCard() const {
+    const ParkingText& text = parkingText(language_);
     if (!captainDefeated_ || accessCardObtained_) {
         return;
     }
@@ -713,7 +722,7 @@ void ParkingLotScene::drawAccessCard() const {
     ThreeDUtils::drawCube({accessCardPosition_.x, accessCardPosition_.y + bob,
                            accessCardPosition_.z + 0.01f},
                           {0.24f, 0.09f, 0.18f}, kHouseWindow);
-    drawWorldLabel("ACCESS CARD",
+    drawWorldLabel(text.accessCardWorldLabel,
                    {accessCardPosition_.x, accessCardPosition_.y + 0.32f,
                     accessCardPosition_.z},
                    0.040f, kSignColor);

@@ -51,7 +51,8 @@ private:
     void renderGeometryImpactEffect(const ImpactEffect& effect) const;
     void renderCharacterImpactEffect(const ImpactEffect& effect) const;
 
-    static void updateWindowTitle(GLFWwindow* window, AppState state);
+    static void updateWindowTitle(GLFWwindow* window, AppState state,
+                                  Language language);
 
     GLFWwindow* window_;
     bool glfwInitialized_;

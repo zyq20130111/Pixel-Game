@@ -41,6 +41,33 @@ struct UiText {
     const char* cancelButton;
 };
 
+struct ParkingText {
+    const char* title;
+    const char* securityLabel;
+    const char* captainLabel;
+    const char* captainDown;
+    const char* captainAlive;
+    const char* accessCardLabel;
+    const char* accessCardObtained;
+    const char* accessCardRequired;
+    const char* healthLabel;
+    const char* playerDownPrompt;
+    const char* levelCompletePrompt;
+    const char* elevatorCardPrompt;
+    const char* elevatorCardHint;
+    const char* elevatorPrompt;
+    const char* eliminateCaptainPrompt;
+    const char* collectAccessCardPrompt;
+    const char* reachElevatorPrompt;
+    const char* elevatorLabel;
+    const char* cardReaderLabel;
+    const char* entryLabel;
+    const char* carLabel;
+    const char* truckLabel;
+    const char* accessCardWorldLabel;
+};
+
 const UiText& uiText(Language language);
+const ParkingText& parkingText(Language language);
 
 }  // namespace pixel_world
