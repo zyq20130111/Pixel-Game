@@ -388,18 +388,25 @@ void SecurityGuardModel::renderHealthBar() const {
             ? kHealthBarFill
             : (healthRatio > 0.25f ? kHealthBarMid : kHealthBarLow);
     const float fullWidth = role_ == SecurityGuardRole::Captain ? 1.42f : 1.16f;
-    const float y = position_.y + kGuardHealthBarHeight;
-    ThreeDUtils::drawCube({position_.x, y, position_.z},
+    const float y = kGuardHealthBarHeight;
+
+    // Keep the bar in the guard's local space so its width follows the
+    // same facing direction as the model.
+    glPushMatrix();
+    glTranslatef(position_.x, position_.y, position_.z);
+    glRotatef(yawDegrees_, 0.0f, 1.0f, 0.0f);
+
+    ThreeDUtils::drawCube({0.0f, y, 0.0f},
                           {fullWidth + 0.16f, 0.13f, 0.06f}, kInkColor);
-    ThreeDUtils::drawCube({position_.x, y, position_.z + 0.01f},
+    ThreeDUtils::drawCube({0.0f, y, 0.01f},
                           {fullWidth, 0.08f, 0.07f}, kHealthBarBack);
     if (healthRatio > 0.01f) {
         ThreeDUtils::drawCube(
-            {position_.x - fullWidth * 0.5f +
-                 fullWidth * healthRatio * 0.5f,
-             y, position_.z + 0.02f},
+            {-fullWidth * 0.5f + fullWidth * healthRatio * 0.5f,
+             y, 0.02f},
             {fullWidth * healthRatio, 0.08f, 0.08f}, fill);
     }
+    glPopMatrix();
 }
 
 void SecurityGuardModel::setRole(SecurityGuardRole role) {
