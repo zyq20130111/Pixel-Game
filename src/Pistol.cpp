@@ -325,21 +325,23 @@ VertexBuffer makePalmDetailModel() {
     return buffer;
 }
 
-VertexBuffer makeOvalPlateXY(const Color& baseColor) {
+VertexBuffer makePointedFlashPlateXY(const Color& baseColor) {
     VertexBuffer buffer;
-    constexpr int kSides = 14;
+    constexpr int kPointCount = 8;
     const Vec3 center{0.0f, 0.0f, 0.0f};
     const Color centerColor = shade(baseColor, 1.10f);
-    for (int side = 0; side < kSides; ++side) {
-        const int nextSide = (side + 1) % kSides;
-        const float angleA =
-            kTau * static_cast<float>(side) / static_cast<float>(kSides);
-        const float angleB =
-            kTau * static_cast<float>(nextSide) / static_cast<float>(kSides);
-        const Vec3 pointA{std::sin(angleA) * 0.45f,
-                          std::cos(angleA) * 0.50f, 0.0f};
-        const Vec3 pointB{std::sin(angleB) * 0.45f,
-                          std::cos(angleB) * 0.50f, 0.0f};
+    const auto pointAt = [](int index) {
+        const float angle =
+            constants::kPi * 0.5f +
+            kTau * static_cast<float>(index) /
+                static_cast<float>(kPointCount * 2);
+        const float radius = index % 2 == 0 ? 0.58f : 0.22f;
+        return Vec3{std::cos(angle) * radius, std::sin(angle) * radius, 0.0f};
+    };
+
+    for (int point = 0; point < kPointCount * 2; ++point) {
+        const Vec3 pointA = pointAt(point);
+        const Vec3 pointB = pointAt((point + 1) % (kPointCount * 2));
         const Color edgeColor = shade(baseColor, 0.96f);
         buffer.addTriangle(center, centerColor, pointA, edgeColor, pointB,
                            edgeColor);
@@ -515,13 +517,13 @@ const VertexBuffer& pistolSightMesh() {
 
 const VertexBuffer& muzzleFlashOuterMesh() {
     static const VertexBuffer mesh =
-        makeOvalPlateXY(constants::kMuzzleFlashOuter);
+        makePointedFlashPlateXY(constants::kMuzzleFlashOuter);
     return mesh;
 }
 
 const VertexBuffer& muzzleFlashCoreMesh() {
     static const VertexBuffer mesh =
-        makeOvalPlateXY(constants::kMuzzleFlashCore);
+        makePointedFlashPlateXY(constants::kMuzzleFlashCore);
     return mesh;
 }
 
@@ -799,20 +801,22 @@ void Pistol::drawMuzzleFlash(float muzzleFlashTimer) {
             constants::kMuzzleFlashForwardOffset};
 
     drawGunBuffer(muzzleFlashOuterMesh(), flashCenter, {},
-                  {0.44f * flashScale, 0.18f * flashScale, 1.0f});
-    drawGunBuffer(muzzleFlashOuterMesh(), flashCenter, {0.0f, 0.0f, 90.0f},
-                  {0.44f * flashScale, 0.18f * flashScale, 1.0f});
+                  {0.40f * flashScale, 0.34f * flashScale, 1.0f});
     drawGunBuffer(muzzleFlashCoreMesh(),
                   {flashCenter.x, flashCenter.y, flashCenter.z - 0.05f}, {},
-                  {0.24f * flashScale, 0.24f * flashScale, 1.0f});
-    drawGunBuffer(muzzleFlashCoreMesh(),
-                  {flashCenter.x - 0.22f * flashScale, flashCenter.y,
-                   flashCenter.z + 0.03f},
-                  {}, {0.10f, 0.10f, 1.0f});
+                  {0.22f * flashScale, 0.22f * flashScale, 1.0f});
     drawGunBuffer(muzzleFlashOuterMesh(),
-                  {flashCenter.x + 0.22f * flashScale, flashCenter.y,
+                  {flashCenter.x - 0.22f * flashScale,
+                   flashCenter.y + 0.03f * flashScale,
                    flashCenter.z + 0.03f},
-                  {}, {0.10f, 0.10f, 1.0f});
+                  {0.0f, 0.0f, -12.0f},
+                  {0.08f * flashScale, 0.16f * flashScale, 1.0f});
+    drawGunBuffer(muzzleFlashCoreMesh(),
+                  {flashCenter.x + 0.22f * flashScale,
+                   flashCenter.y - 0.02f * flashScale,
+                   flashCenter.z + 0.03f},
+                  {0.0f, 0.0f, 12.0f},
+                  {0.07f * flashScale, 0.14f * flashScale, 1.0f});
 }
 
 void Pistol::drawIronSights(float aimAmount) {
