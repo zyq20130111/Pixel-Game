@@ -27,13 +27,8 @@ add_executable(
     src/SceneBase.cpp
     src/SoundManager.cpp
     src/miniaudio.cpp
-    src/BigHeadSonModel.cpp
-    src/PoliceModel.cpp
-    src/ZombieModel.cpp
-    src/MikoModel.cpp
-    src/CharacterModelBase.cpp
-    src/CharacterModel.cpp
-    src/LowPolyCharacterModel.cpp
+    src/SecurityGuardModel.cpp
+    src/ParkingLotScene.cpp
     src/PistolBullet.cpp
     src/BulletBase.cpp
     src/Pistol.cpp

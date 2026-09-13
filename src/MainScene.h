@@ -1,21 +1,17 @@
 #pragma once
 
 #include "PistolBullet.h"
-#include "BigHeadSonModel.h"
 #include "Camera.h"
 #include "DifficultyUI.h"
-#include "LowPolyCharacterModel.h"
 #include "LoadingUI.h"
 #include "Localization.h"
 #include "MainUI.h"
-#include "MikoModel.h"
-#include "PoliceModel.h"
+#include "ParkingLotScene.h"
 #include "platform.h"
 #include "SceneBase.h"
 #include "SoundManager.h"
 #include "types.h"
 #include "Pistol.h"
-#include "ZombieModel.h"
 
 #include <memory>
 #include <vector>
@@ -44,17 +40,7 @@ private:
     void renderScene() const;
     void renderImpactEffects() const;
     void renderCrosshair() const;
-
-    void drawSkybox(const Vec3& cameraPosition) const;
-    void drawSun(const Vec3& cameraPosition) const;
-    void drawGround() const;
-    void drawTree(const Vec3& base) const;
-    void drawRock(const Vec3& base, float scale) const;
-    void drawCloud(const Vec3& base, float scale) const;
-    void drawRoad(const Vec3& center, const Vec3& size) const;
-    void drawCentralPlaza() const;
-    void drawPixelStatue() const;
-    void drawDungeonPortal() const;
+    void renderParkingHud() const;
 
     static bool segmentHitsGround(const Vec3& start, const Vec3& end,
                                   float& hitT);
@@ -74,12 +60,7 @@ private:
 
     Camera camera_;
     SoundManager soundManager_;
-    LowPolyCharacterModel character_;
-    BigHeadSonModel bigHeadSon_;
-    PoliceModel police_;
-    PoliceModel policeCrouched_;
-    ZombieModel zombie_;
-    MikoModel miko_;
+    ParkingLotScene parkingLotScene_;
     Pistol pistol_;
     MainUI mainUI_;
     DifficultyUI difficultyUI_;
@@ -90,6 +71,8 @@ private:
     std::vector<ImpactEffect> impactEffects_;
     bool previousFireDown_;
     bool previousJumpDown_;
+    bool previousInteractDown_;
+    float parkingHintTimer_;
     bool previousEscapeDown_;
     bool exitPromptVisible_;
     bool previousPromptMouseDown_;
