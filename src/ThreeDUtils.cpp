@@ -229,6 +229,9 @@ std::vector<std::uint32_t> decodeUtf8(const std::string& text) {
 }
 
 #ifdef _WIN32
+constexpr int kSystemPixelFontHeight = 12;
+constexpr float kSystemPixelFontScale = 8.0f / 12.0f;
+
 struct SystemTextTexture {
     GLuint texture{0};
     int width{0};
@@ -266,7 +269,7 @@ bool utf8ToWide(const std::string& text, std::wstring& wideText) {
 HFONT createSystemFont(int fontHeight) {
     return CreateFontW(
         -fontHeight, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, L"Microsoft YaHei UI");
 }
 
@@ -311,10 +314,10 @@ bool measureSystemText(const std::wstring& text, int fontHeight, int& width,
     return measured;
 }
 
-SystemTextTexture* getSystemTextTexture(const std::string& text,
-                                        float pixelScale) {
-    const int fontHeight =
-        std::max(8, static_cast<int>(std::lround(7.0f * pixelScale)));
+SystemTextTexture* getSystemTextTexture(const std::string& text) {
+    // Render once at a tiny fixed resolution, then enlarge with nearest-neighbor
+    // sampling so every source pixel becomes a crisp pixel-art block.
+    const int fontHeight = kSystemPixelFontHeight;
     std::wstring wideText;
     if (!utf8ToWide(text, wideText)) {
         return nullptr;
@@ -390,8 +393,9 @@ SystemTextTexture* getSystemTextTexture(const std::string& text,
         4u);
     const auto* bgra = static_cast<const unsigned char*>(bitmapBits);
     for (std::size_t pixel = 0; pixel < rgba.size(); pixel += 4) {
-        const unsigned char alpha =
+        const unsigned char coverage =
             std::max({bgra[pixel], bgra[pixel + 1], bgra[pixel + 2]});
+        const unsigned char alpha = coverage >= 128 ? 255 : 0;
         rgba[pixel] = 255;
         rgba[pixel + 1] = 255;
         rgba[pixel + 2] = 255;
@@ -401,8 +405,8 @@ SystemTextTexture* getSystemTextTexture(const std::string& text,
     GLuint texture = 0;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -426,11 +430,14 @@ SystemTextTexture* getSystemTextTexture(const std::string& text,
 bool drawSystemText(const std::string& text, float x, float y,
                     float pixelScale, const Color& color) {
     SystemTextTexture* systemText =
-        getSystemTextTexture(text, pixelScale);
+        getSystemTextTexture(text);
     if (systemText == nullptr || systemText->texture == 0) {
         return false;
     }
 
+    const float drawScale = pixelScale * kSystemPixelFontScale;
+    const float width = static_cast<float>(systemText->width) * drawScale;
+    const float height = static_cast<float>(systemText->height) * drawScale;
     glPushAttrib(GL_ENABLE_BIT | GL_TEXTURE_BIT | GL_CURRENT_BIT);
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, systemText->texture);
@@ -440,12 +447,11 @@ bool drawSystemText(const std::string& text, float x, float y,
     glTexCoord2f(0.0f, 0.0f);
     glVertex2f(x, y);
     glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(x + static_cast<float>(systemText->width), y);
+    glVertex2f(x + width, y);
     glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(x + static_cast<float>(systemText->width),
-               y + static_cast<float>(systemText->height));
+    glVertex2f(x + width, y + height);
     glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(x, y + static_cast<float>(systemText->height));
+    glVertex2f(x, y + height);
     glEnd();
     glPopAttrib();
     return true;
@@ -658,10 +664,10 @@ float ThreeDUtils::textWidth(const std::string& text, float pixelScale) {
         if (utf8ToWide(text, wideText)) {
             int width = 0;
             int height = 0;
-            const int fontHeight =
-                std::max(8, static_cast<int>(std::lround(7.0f * pixelScale)));
-            if (measureSystemText(wideText, fontHeight, width, height)) {
-                return static_cast<float>(width);
+            if (measureSystemText(wideText, kSystemPixelFontHeight, width,
+                                  height)) {
+                return static_cast<float>(width) * pixelScale *
+                       kSystemPixelFontScale;
             }
         }
     }
