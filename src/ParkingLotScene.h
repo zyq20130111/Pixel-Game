@@ -52,6 +52,7 @@ private:
     bool canGuardSeePlayer(const SecurityGuardModel& guard,
                            const Vec3& playerPosition) const;
     bool guardPositionBlocked(const Vec3& position,
+                              const Vec3& currentPosition,
                               std::size_t movingGuardIndex,
                               const Vec3& playerPosition) const;
 

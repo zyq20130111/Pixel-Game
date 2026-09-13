@@ -696,6 +696,15 @@ bool SecurityGuardModel::moveTo(
         position_ = slideCandidate;
         return true;
     }
+
+    const Vec3 reverseSlideDirection{direction.z, 0.0f, -direction.x};
+    const Vec3 reverseSlideCandidate =
+        position_ +
+        reverseSlideDirection * std::min(maxDistance, distance);
+    if (!collisionTest(reverseSlideCandidate)) {
+        position_ = reverseSlideCandidate;
+        return true;
+    }
     return false;
 }
 

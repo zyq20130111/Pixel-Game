@@ -140,10 +140,13 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
         const bool playerVisible =
             guard.alive() &&
             (guardSeesPlayer[index] || groupAlertActive);
+        const Vec3 currentGuardPosition = guard.position();
         playerDamage += guard.update(
             dt, playerPosition, playerVisible,
-            [this, index, &playerPosition](const Vec3& position) {
-                return guardPositionBlocked(position, index, playerPosition);
+            [this, index, &playerPosition, currentGuardPosition](
+                const Vec3& position) {
+                return guardPositionBlocked(position, currentGuardPosition,
+                                            index, playerPosition);
             });
     }
 
@@ -454,7 +457,8 @@ bool ParkingLotScene::canGuardSeePlayer(
 }
 
 bool ParkingLotScene::guardPositionBlocked(
-    const Vec3& position, std::size_t movingGuardIndex,
+    const Vec3& position, const Vec3& currentPosition,
+    std::size_t movingGuardIndex,
     const Vec3& playerPosition) const {
     if (position.x < -kRoomHalfWidth + kGuardCollisionRadius ||
         position.x > kRoomHalfWidth - kGuardCollisionRadius ||
@@ -469,8 +473,25 @@ bool ParkingLotScene::guardPositionBlocked(
     }
 
     for (const Box& box : kSolidBoxes) {
-        if (circleIntersectsBox(position.x, position.z,
-                                kGuardCollisionRadius, box)) {
+        if (!circleIntersectsBox(position.x, position.z,
+                                 kGuardCollisionRadius, box)) {
+            continue;
+        }
+
+        const bool currentPositionOverlaps =
+            circleIntersectsBox(currentPosition.x, currentPosition.z,
+                                kGuardCollisionRadius, box);
+        const float currentDistance =
+            distanceSquaredOnFloor(currentPosition, box.center);
+        const float candidateDistance =
+            distanceSquaredOnFloor(position, box.center);
+
+        // A guard can spawn just behind a vehicle with its padded collision
+        // radius slightly inside the vehicle bounds. Let it move outward a
+        // little at a time until it is clear, but never allow movement
+        // deeper into the obstacle.
+        if (!currentPositionOverlaps ||
+            candidateDistance <= currentDistance + 0.0001f) {
             return true;
         }
     }
