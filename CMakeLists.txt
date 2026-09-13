@@ -40,7 +40,10 @@ add_executable(
     src/WeaponBase.cpp
     src/BaseUI.cpp
     src/AppConfig.cpp
-    src/LoginScreen.cpp
+    src/UICommon.cpp
+    src/MainUI.cpp
+    src/DifficultyUI.cpp
+    src/LoadingUI.cpp
     src/Localization.cpp
     src/MainScene.cpp
 )

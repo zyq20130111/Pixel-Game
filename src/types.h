@@ -46,12 +46,6 @@ enum class ImpactType {
     Character,
 };
 
-struct MenuLayout {
-    Rect panel;
-    Rect loginButton;
-    Rect exitButton;
-};
-
 struct ImpactEffect {
     Vec3 position;
     ImpactType type;
@@ -67,12 +61,28 @@ enum class CharacterHitZone {
 
 enum class AppState {
     MainMenu,
+    DifficultySelect,
+    Loading,
     Playing,
+};
+
+enum class Difficulty {
+    Easy,
+    Normal,
+    Hard,
 };
 
 enum class MenuAction {
     None,
-    Login,
+    ContinueGame,
+    NewGame,
+    ChapterSelect,
+    Settings,
+    Credits,
+    DifficultyEasy,
+    DifficultyNormal,
+    DifficultyHard,
+    Back,
     Exit,
 };
 

@@ -3,9 +3,11 @@
 #include "PistolBullet.h"
 #include "BigHeadSonModel.h"
 #include "Camera.h"
+#include "DifficultyUI.h"
 #include "LowPolyCharacterModel.h"
-#include "LoginScreen.h"
+#include "LoadingUI.h"
 #include "Localization.h"
+#include "MainUI.h"
 #include "MikoModel.h"
 #include "PoliceModel.h"
 #include "platform.h"
@@ -30,6 +32,8 @@ public:
 private:
     bool initialize();
     void resetGame();
+    void startLoading(Difficulty difficulty);
+    void updateLoading(float dt);
     void updateExitPrompt();
     void updateGameplay(float dt);
     void updateBullets(float dt);
@@ -69,7 +73,6 @@ private:
     Language language_;
 
     Camera camera_;
-    Camera menuCamera_;
     SoundManager soundManager_;
     LowPolyCharacterModel character_;
     BigHeadSonModel bigHeadSon_;
@@ -78,7 +81,11 @@ private:
     ZombieModel zombie_;
     MikoModel miko_;
     Pistol pistol_;
-    LoginScreen loginScreen_;
+    MainUI mainUI_;
+    DifficultyUI difficultyUI_;
+    LoadingUI loadingUI_;
+    Difficulty selectedDifficulty_;
+    float loadingElapsed_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;
     std::vector<ImpactEffect> impactEffects_;
     bool previousFireDown_;

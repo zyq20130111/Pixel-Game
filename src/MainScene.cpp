@@ -173,7 +173,6 @@ MainScene::MainScene()
       state_(AppState::MainMenu),
       language_(AppConfig::loadLanguage()),
       camera_(),
-      menuCamera_({0.0f, kCameraGroundHeight, 17.5f}),
       soundManager_(),
       character_(),
       bigHeadSon_(),
@@ -182,7 +181,11 @@ MainScene::MainScene()
       zombie_(),
       miko_(),
       pistol_(),
-      loginScreen_(language_),
+      mainUI_(language_),
+      difficultyUI_(language_),
+      loadingUI_(language_),
+      selectedDifficulty_(Difficulty::Normal),
+      loadingElapsed_(0.0f),
       bullets_(),
       impactEffects_(),
       previousFireDown_(false),
@@ -224,30 +227,42 @@ int MainScene::run() {
 
         if (state_ == AppState::MainMenu) {
             const MenuAction action =
-                loginScreen_.update(window_, framebufferWidth_, framebufferHeight_);
-            const bool buttonClicked = loginScreen_.buttonClicked();
-            if (action == MenuAction::Login) {
-                state_ = AppState::Playing;
-                resetGame();
-                if (buttonClicked) {
-                    soundManager_.play2D("btnclick.wav", 1.0f);
-                }
-                previousFireDown_ =
-                    glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) ==
-                    GLFW_PRESS;
-                previousJumpDown_ =
-                    glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
+                mainUI_.update(window_, framebufferWidth_, framebufferHeight_);
+            if (mainUI_.buttonClicked()) {
+                soundManager_.play2D("btnclick.wav", 1.0f);
+            }
+            if (action == MenuAction::NewGame ||
+                action == MenuAction::ContinueGame) {
+                state_ = AppState::DifficultySelect;
             } else if (action == MenuAction::Exit) {
-                if (buttonClicked) {
-                    soundManager_.play2D("btnclick.wav", 1.0f);
-                }
                 glfwSetWindowShouldClose(window_, GLFW_TRUE);
             }
 
-            ThreeDUtils::setProjection(framebufferWidth_, framebufferHeight_);
-            menuCamera_.apply();
-            renderFrame(menuCamera_, false);
-            loginScreen_.render(framebufferWidth_, framebufferHeight_);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            mainUI_.render(framebufferWidth_, framebufferHeight_);
+        } else if (state_ == AppState::DifficultySelect) {
+            const MenuAction action = difficultyUI_.update(
+                window_, framebufferWidth_, framebufferHeight_);
+            if (difficultyUI_.buttonClicked()) {
+                soundManager_.play2D("btnclick.wav", 1.0f);
+            }
+            if (action == MenuAction::DifficultyEasy) {
+                startLoading(Difficulty::Easy);
+            } else if (action == MenuAction::DifficultyNormal) {
+                startLoading(Difficulty::Normal);
+            } else if (action == MenuAction::DifficultyHard) {
+                startLoading(Difficulty::Hard);
+            } else if (action == MenuAction::Back) {
+                state_ = AppState::MainMenu;
+                mainUI_.showMainMenu();
+            }
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            difficultyUI_.render(framebufferWidth_, framebufferHeight_);
+        } else if (state_ == AppState::Loading) {
+            updateLoading(dt);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            loadingUI_.render(framebufferWidth_, framebufferHeight_);
         } else {
             const bool promptWasVisible = exitPromptVisible_;
             updateExitPrompt();
@@ -599,6 +614,32 @@ void MainScene::renderScene() const {
     policeCrouched_.render();
     zombie_.render();
     miko_.render();
+}
+
+void MainScene::startLoading(Difficulty difficulty) {
+    selectedDifficulty_ = difficulty;
+    loadingElapsed_ = 0.0f;
+    loadingUI_.setProgress(0.0f);
+    state_ = AppState::Loading;
+    glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}
+
+void MainScene::updateLoading(float dt) {
+    // Keep the loading screen visible long enough to communicate the scene
+    // transition, then initialize the current playable scene.
+    loadingElapsed_ += dt;
+    const float loadingDuration = 1.25f;
+    loadingUI_.setProgress(loadingElapsed_ / loadingDuration);
+    if (loadingElapsed_ < loadingDuration) {
+        return;
+    }
+
+    resetGame();
+    state_ = AppState::Playing;
+    previousFireDown_ =
+        glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    previousJumpDown_ =
+        glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
 }
 
 void MainScene::renderExitPrompt() const {
@@ -1086,10 +1127,23 @@ void MainScene::renderCharacterImpactEffect(
 
 void MainScene::updateWindowTitle(GLFWwindow* window, AppState state) {
     static std::string lastTitle;
-    const std::string title =
-        state == AppState::MainMenu
-            ? "Pixel World 3D | Main Menu"
-            : "Pixel World 3D | Mouse look | LMB fire | RMB aim | E attack | Shift run | Space jump | Arrows walk | WASD move | Esc exit";
+    std::string title;
+    switch (state) {
+        case AppState::MainMenu:
+            title = "Pixel World 3D | Main Menu";
+            break;
+        case AppState::DifficultySelect:
+            title = "Pixel World 3D | Select Difficulty";
+            break;
+        case AppState::Loading:
+            title = "Pixel World 3D | Loading";
+            break;
+        case AppState::Playing:
+            title =
+                "Pixel World 3D | Mouse look | LMB fire | RMB aim | E attack | "
+                "Shift run | Space jump | Arrows walk | WASD move | Esc exit";
+            break;
+    }
     if (title == lastTitle) {
         return;
     }
