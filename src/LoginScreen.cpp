@@ -8,8 +8,9 @@
 
 namespace pixel_world {
 
-LoginScreen::LoginScreen()
-    : previousMouseDown_(false),
+LoginScreen::LoginScreen(Language language)
+    : language_(language),
+      previousMouseDown_(false),
       buttonClicked_(false),
       mouse_{0.0f, 0.0f, false} {}
 
@@ -47,6 +48,7 @@ bool LoginScreen::buttonClicked() const {
 }
 
 void LoginScreen::render(int framebufferWidth, int framebufferHeight) const {
+    const UiText& text = uiText(language_);
     const MenuLayout layout = makeLayout(framebufferWidth, framebufferHeight);
     const float uiScale =
         std::min(static_cast<float>(framebufferWidth) /
@@ -113,22 +115,22 @@ void LoginScreen::render(int framebufferWidth, int framebufferHeight) const {
         cornerColor);
 
     const float titleScale = std::max(1.0f, 4.0f * uiScale);
-    ThreeDUtils::drawCenteredText("PIXEL WORLD 3D", layout.panel, titleScale,
+    ThreeDUtils::drawCenteredText(text.loginTitle, layout.panel, titleScale,
                                   constants::kInkColor, 48.0f * uiScale);
     ThreeDUtils::drawCenteredText(
-        "ADVENTURE AWAITS", layout.panel, std::max(1.0f, 2.0f * uiScale),
+        text.loginSubtitle, layout.panel, std::max(1.0f, 2.0f * uiScale),
         ThreeDUtils::shade(constants::kInkColor, 1.35f), 104.0f * uiScale);
 
     const bool loginHovered =
         contains(layout.loginButton, mouse_.x, mouse_.y);
     const bool exitHovered = contains(layout.exitButton, mouse_.x, mouse_.y);
-    drawButton(layout.loginButton, "LOGIN GAME", constants::kButtonStart,
+    drawButton(layout.loginButton, text.loginButton, constants::kButtonStart,
                loginHovered, uiScale);
-    drawButton(layout.exitButton, "EXIT GAME", constants::kButtonExit,
+    drawButton(layout.exitButton, text.exitButton, constants::kButtonExit,
                exitHovered, uiScale);
 
     ThreeDUtils::drawCenteredText(
-        "WASD TO MOVE  ESC TO QUIT", layout.panel,
+        text.loginHint, layout.panel,
         std::max(1.0f, 1.5f * uiScale),
         ThreeDUtils::shade(constants::kInkColor, 1.18f),
         layout.panel.height - 54.0f * uiScale);

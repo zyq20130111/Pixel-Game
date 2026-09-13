@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include "LowPolyCharacterModel.h"
 #include "LoginScreen.h"
+#include "Localization.h"
 #include "MikoModel.h"
 #include "PoliceModel.h"
 #include "platform.h"
@@ -65,6 +66,7 @@ private:
     int framebufferWidth_;
     int framebufferHeight_;
     AppState state_;
+    Language language_;
 
     Camera camera_;
     Camera menuCamera_;

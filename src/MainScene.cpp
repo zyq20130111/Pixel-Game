@@ -1,5 +1,6 @@
 #include "MainScene.h"
 
+#include "AppConfig.h"
 #include "game_constants.h"
 #include "ThreeDUtils.h"
 
@@ -170,6 +171,7 @@ MainScene::MainScene()
       framebufferWidth_(0),
       framebufferHeight_(0),
       state_(AppState::MainMenu),
+      language_(AppConfig::loadLanguage()),
       camera_(),
       menuCamera_({0.0f, kCameraGroundHeight, 17.5f}),
       soundManager_(),
@@ -180,7 +182,7 @@ MainScene::MainScene()
       zombie_(),
       miko_(),
       pistol_(),
-      loginScreen_(),
+      loginScreen_(language_),
       bullets_(),
       impactEffects_(),
       previousFireDown_(false),
@@ -600,6 +602,7 @@ void MainScene::renderScene() const {
 }
 
 void MainScene::renderExitPrompt() const {
+    const UiText& text = uiText(language_);
     const ExitPromptLayout layout =
         makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
     const float uiScale =
@@ -631,16 +634,17 @@ void MainScene::renderExitPrompt() const {
         layout.panel, kInkColor, std::max(2.0f, 5.0f * uiScale));
 
     ThreeDUtils::drawCenteredText(
-        "EXIT GAME", layout.panel, std::max(1.0f, 4.0f * uiScale),
+        text.exitPromptTitle, layout.panel, std::max(1.0f, 4.0f * uiScale),
         kInkColor, 42.0f * uiScale);
     ThreeDUtils::drawCenteredText(
-        "ARE YOU SURE", layout.panel, std::max(1.0f, 2.4f * uiScale),
+        text.exitPromptSubtitle, layout.panel,
+        std::max(1.0f, 2.4f * uiScale),
         ThreeDUtils::shade(kInkColor, 1.2f), 104.0f * uiScale);
 
-    drawPromptButton(layout.yesButton, "YES", kButtonExit,
+    drawPromptButton(layout.yesButton, text.confirmButton, kButtonExit,
                      contains(layout.yesButton, promptMouse_.x, promptMouse_.y),
                      uiScale);
-    drawPromptButton(layout.noButton, "NO", kButtonStart,
+    drawPromptButton(layout.noButton, text.cancelButton, kButtonStart,
                      contains(layout.noButton, promptMouse_.x, promptMouse_.y),
                      uiScale);
 

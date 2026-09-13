@@ -1,12 +1,13 @@
 #pragma once
 
 #include "BaseUI.h"
+#include "Localization.h"
 
 namespace pixel_world {
 
 class LoginScreen final : public BaseUI {
 public:
-    LoginScreen();
+    explicit LoginScreen(Language language);
 
     MenuAction update(GLFWwindow* window, int framebufferWidth,
                       int framebufferHeight) override;
@@ -22,6 +23,7 @@ private:
                            const Color& baseColor, bool hovered,
                            float uiScale);
 
+    Language language_;
     bool previousMouseDown_;
     bool buttonClicked_;
     MouseState mouse_;

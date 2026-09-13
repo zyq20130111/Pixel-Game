@@ -39,7 +39,9 @@ add_executable(
     src/Pistol.cpp
     src/WeaponBase.cpp
     src/BaseUI.cpp
+    src/AppConfig.cpp
     src/LoginScreen.cpp
+    src/Localization.cpp
     src/MainScene.cpp
 )
 target_include_directories(Pixel-Game PRIVATE
@@ -54,6 +56,7 @@ else()
 endif()
 
 if (WIN32)
+    target_link_libraries(Pixel-Game PRIVATE gdi32)
     target_compile_definitions(Pixel-Game PRIVATE NOMINMAX)
     set_target_properties(Pixel-Game PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
