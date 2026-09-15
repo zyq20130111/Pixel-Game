@@ -1,8 +1,9 @@
 #pragma once
 
-#include "PistolBullet.h"
+#include "BulletBase.h"
 #include "Camera.h"
 #include "DifficultyUI.h"
+#include "Knife.h"
 #include "LoadingUI.h"
 #include "Localization.h"
 #include "MainUI.h"
@@ -11,7 +12,6 @@
 #include "SceneBase.h"
 #include "SoundManager.h"
 #include "types.h"
-#include "Pistol.h"
 
 #include <memory>
 #include <vector>
@@ -36,7 +36,7 @@ private:
     void updateImpactEffects(float dt);
     bool cameraPositionBlocked(const Vec3& position,
                                const Vec3& currentPosition) const;
-    void renderFrame(const Camera& camera, bool showPistol);
+    void renderFrame(const Camera& camera, bool showWeapon);
     void renderExitPrompt() const;
     void renderScene() const;
     void renderImpactEffects() const;
@@ -46,6 +46,7 @@ private:
     static bool segmentHitsGround(const Vec3& start, const Vec3& end,
                                   float& hitT);
     static Vec3 pointOnSegment(const Vec3& start, const Vec3& end, float t);
+    void performKnifeAttack();
     void spawnImpactEffect(const Vec3& position, ImpactType type);
     void renderGroundImpactEffect(const ImpactEffect& effect) const;
     void renderGeometryImpactEffect(const ImpactEffect& effect) const;
@@ -64,7 +65,7 @@ private:
     Camera camera_;
     SoundManager soundManager_;
     ParkingLotScene parkingLotScene_;
-    Pistol pistol_;
+    Knife knife_;
     MainUI mainUI_;
     DifficultyUI difficultyUI_;
     LoadingUI loadingUI_;

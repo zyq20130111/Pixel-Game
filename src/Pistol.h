@@ -29,8 +29,6 @@ private:
                                         float muzzleFlashTimer);
     static Vec3 muzzleWorldPosition(const Camera& camera);
 
-    static void drawFirstPersonHandBack();
-    static void drawFirstPersonHandGrip();
     static void drawMuzzleFlash(float muzzleFlashTimer);
     static void drawIronSights(float aimAmount);
 

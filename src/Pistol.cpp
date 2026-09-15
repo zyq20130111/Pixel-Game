@@ -1,5 +1,6 @@
 #include "Pistol.h"
 
+#include "FirstPersonHands.h"
 #include "PistolBullet.h"
 #include "SoundManager.h"
 #include "Camera.h"
@@ -593,6 +594,74 @@ void drawGunPivotedBuffer(const VertexBuffer& buffer, const Vec3& pivot,
     drawHandPivotedBuffer(buffer, pivot, offset, rotationDegrees, scale);
 }
 
+struct HandLayerMotion {
+    Vec3 translation;
+    Vec3 rotationDegrees;
+    float fingerCurl;
+};
+
+float handSmooth01(float value) {
+    const float t = std::clamp(value, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+float handSlashAmount(float progress) {
+    const float clampedProgress = std::clamp(progress, 0.0f, 1.0f);
+    if (clampedProgress < 0.18f) {
+        return -0.18f * handSmooth01(clampedProgress / 0.18f);
+    }
+    if (clampedProgress < 0.58f) {
+        return handSmooth01((clampedProgress - 0.18f) / 0.40f);
+    }
+    return 1.0f - handSmooth01((clampedProgress - 0.58f) / 0.42f);
+}
+
+float handWindupAmount(float progress) {
+    const float clampedProgress = std::clamp(progress, 0.0f, 1.0f);
+    if (clampedProgress < 0.24f) {
+        return handSmooth01(clampedProgress / 0.24f);
+    }
+    return 1.0f - handSmooth01((clampedProgress - 0.24f) / 0.42f);
+}
+
+HandLayerMotion handLayerMotion(FirstPersonHandAnimation animation,
+                                float progress, bool gripLayer) {
+    const float clampedProgress = std::clamp(progress, 0.0f, 1.0f);
+    if (animation == FirstPersonHandAnimation::KnifeSlash) {
+        const float slash = handSlashAmount(clampedProgress);
+        const float windup = handWindupAmount(clampedProgress);
+        return {
+            {0.06f * windup - 0.17f * slash,
+             0.04f * windup + 0.08f * slash,
+             0.06f * windup - 0.12f * slash},
+            {-8.0f + 8.0f * windup - 24.0f * slash,
+             -8.0f - 8.0f * windup + 22.0f * slash,
+            60.0f + 16.0f * windup - 72.0f * slash},
+            0.45f + 0.30f * std::max(0.0f, slash),
+        };
+    }
+
+    const float recoil = clampedProgress;
+    const float gripScale = gripLayer ? 1.0f : 0.72f;
+    return {
+        {0.0f,
+         0.025f * recoil * gripScale,
+         0.055f * recoil * gripScale},
+        {-4.0f * recoil * gripScale,
+         0.0f,
+         -2.0f * recoil * gripScale},
+        0.12f * recoil,
+    };
+}
+
+void applyHandLayerMotion(const HandLayerMotion& motion) {
+    glTranslatef(motion.translation.x, motion.translation.y,
+                 motion.translation.z);
+    glRotatef(motion.rotationDegrees.z, 0.0f, 0.0f, 1.0f);
+    glRotatef(motion.rotationDegrees.y, 0.0f, 1.0f, 0.0f);
+    glRotatef(motion.rotationDegrees.x, 1.0f, 0.0f, 0.0f);
+}
+
 }  // namespace
 
 Pistol::Pistol() : muzzleFlashTimer_(0.0f) {}
@@ -642,7 +711,12 @@ void Pistol::render(const Camera& camera) const {
     glScalef(constants::kPistolScale, constants::kPistolScale,
              constants::kPistolScale);
 
-    drawFirstPersonHandBack();
+    const float handAnimation =
+        muzzleFlashTimer_ > 0.0f
+            ? muzzleFlashTimer_ / constants::kMuzzleFlashDuration
+            : 0.0f;
+    FirstPersonHands::drawBack(FirstPersonHandAnimation::PistolFire,
+                               handAnimation);
     drawMuzzleFlash(muzzleFlashTimer_);
 
     drawGunBuffer(pistolFrameMesh(), {0.0f, -0.02f, 0.0f}, {},
@@ -676,7 +750,8 @@ void Pistol::render(const Camera& camera) const {
                   {0.0f, 0.0f, -18.0f}, {0.050f, 0.18f, 0.045f});
 
     drawIronSights(camera.aimAmount());
-    drawFirstPersonHandGrip();
+    FirstPersonHands::drawGrip(FirstPersonHandAnimation::PistolFire,
+                               handAnimation);
 
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
@@ -750,7 +825,21 @@ Vec3 Pistol::muzzleWorldPosition(const Camera& camera) {
     return camera.toWorld(bulletOrigin);
 }
 
-void Pistol::drawFirstPersonHandBack() {
+void FirstPersonHands::drawBack(FirstPersonHandAnimation animation,
+                                float progress) {
+    const HandLayerMotion motion = handLayerMotion(animation, progress, false);
+    const bool knifePose = animation == FirstPersonHandAnimation::KnifeSlash;
+    glPushMatrix();
+    if (knifePose) {
+        // Keep the support hand open in the lower-left of the view while the
+        // weapon and gripping hand stay grouped on the lower-right.
+        glTranslatef(-0.82f, -0.08f, 0.03f);
+    }
+    applyHandLayerMotion(motion);
+    if (knifePose) {
+        glRotatef(-28.0f, 0.0f, 0.0f, 1.0f);
+    }
+
     drawHandBuffer(sleeveDarkMesh(), {0.48f, -1.08f, 0.70f},
                    {-24.0f, 0.0f, -10.0f}, {0.42f, 0.92f, 0.38f});
     drawHandBuffer(sleeveMesh(), {0.32f, -0.82f, 0.55f},
@@ -777,24 +866,65 @@ void Pistol::drawFirstPersonHandBack() {
                           {0.16f, 0.28f, 0.15f});
     drawHandPivotedBuffer(fingerTipMesh(), {0.34f, -0.72f, 0.52f},
                           {0.0f, -0.10f, 0.02f},
-                          {-30.0f, 15.0f, -34.0f},
+                          {-30.0f - 8.0f * motion.fingerCurl,
+                           15.0f, -34.0f},
                           {0.12f, 0.20f, 0.11f});
+
+    glPopMatrix();
 }
 
-void Pistol::drawFirstPersonHandGrip() {
-    const std::array<float, 4> fingerX{-0.20f, -0.06f, 0.08f, 0.21f};
-    const std::array<float, 4> fingerLength{0.42f, 0.50f, 0.47f, 0.36f};
-    const std::array<float, 4> fingerWidth{0.105f, 0.118f, 0.112f, 0.094f};
-    const std::array<float, 4> fingerTilt{-12.0f, -4.0f, 4.0f, 13.0f};
+void FirstPersonHands::drawGrip(FirstPersonHandAnimation animation,
+                                float progress) {
+    const HandLayerMotion motion = handLayerMotion(animation, progress, true);
+    const bool knifePose = animation == FirstPersonHandAnimation::KnifeSlash;
+    glPushMatrix();
+    if (knifePose) {
+        // The knife is held by the right hand; keep the fist aligned with the
+        // handle instead of leaving it on the support-hand side.
+        glTranslatef(0.22f, -0.05f, 0.04f);
+    }
+    applyHandLayerMotion(motion);
 
-    drawHandBuffer(palmMesh(), {-0.31f, -0.49f, 0.31f},
-                   {-18.0f, -3.0f, 18.0f}, {0.22f, 0.34f, 0.48f});
-    drawHandBuffer(palmDetailMesh(), {-0.31f, -0.49f, 0.31f},
-                   {-18.0f, -3.0f, 18.0f}, {0.22f, 0.34f, 0.48f});
-    drawHandBuffer(palmShadowMesh(), {-0.23f, -0.68f, 0.43f},
-                   {-10.0f, 0.0f, 12.0f}, {0.16f, 0.20f, 0.20f});
-    drawHandBuffer(thenarPadMesh(), {-0.18f, -0.45f, 0.23f},
-                   {12.0f, 16.0f, 26.0f}, {0.13f, 0.24f, 0.14f});
+    const std::array<float, 4> fingerX =
+        knifePose ? std::array<float, 4>{-0.18f, -0.06f, 0.06f, 0.18f}
+                  : std::array<float, 4>{-0.20f, -0.06f, 0.08f, 0.21f};
+    const std::array<float, 4> fingerLength =
+        knifePose ? std::array<float, 4>{0.40f, 0.48f, 0.46f, 0.36f}
+                  : std::array<float, 4>{0.42f, 0.50f, 0.47f, 0.36f};
+    const std::array<float, 4> fingerWidth =
+        knifePose ? std::array<float, 4>{0.108f, 0.120f, 0.114f, 0.098f}
+                  : std::array<float, 4>{0.105f, 0.118f, 0.112f, 0.094f};
+    const std::array<float, 4> fingerTilt =
+        knifePose ? std::array<float, 4>{-8.0f, -3.0f, 3.0f, 9.0f}
+                  : std::array<float, 4>{-12.0f, -4.0f, 4.0f, 13.0f};
+
+    const Vec3 palmPosition = knifePose
+                                  ? Vec3{-0.17f, -0.50f, 0.27f}
+                                  : Vec3{-0.31f, -0.49f, 0.31f};
+    const Vec3 palmRotation = knifePose
+                                  ? Vec3{-14.0f, -1.0f, 14.0f}
+                                  : Vec3{-18.0f, -3.0f, 18.0f};
+    const Vec3 palmScale = knifePose
+                               ? Vec3{0.27f, 0.37f, 0.45f}
+                               : Vec3{0.22f, 0.34f, 0.48f};
+    drawHandBuffer(palmMesh(), palmPosition, palmRotation, palmScale);
+    drawHandBuffer(palmDetailMesh(), palmPosition, palmRotation, palmScale);
+    drawHandBuffer(
+        palmShadowMesh(),
+        knifePose ? Vec3{-0.10f, -0.68f, 0.38f}
+                  : Vec3{-0.23f, -0.68f, 0.43f},
+        knifePose ? Vec3{-8.0f, 0.0f, 9.0f}
+                  : Vec3{-10.0f, 0.0f, 12.0f},
+        knifePose ? Vec3{0.18f, 0.22f, 0.20f}
+                  : Vec3{0.16f, 0.20f, 0.20f});
+    drawHandBuffer(
+        thenarPadMesh(),
+        knifePose ? Vec3{0.02f, -0.43f, 0.18f}
+                  : Vec3{-0.18f, -0.45f, 0.23f},
+        knifePose ? Vec3{8.0f, 12.0f, 18.0f}
+                  : Vec3{12.0f, 16.0f, 26.0f},
+        knifePose ? Vec3{0.15f, 0.27f, 0.15f}
+                  : Vec3{0.13f, 0.24f, 0.14f});
 
     for (std::size_t i = 0; i < fingerX.size(); ++i) {
         const VertexBuffer& mainFinger =
@@ -802,25 +932,45 @@ void Pistol::drawFirstPersonHandGrip() {
         const float length = fingerLength[i];
         const float width = fingerWidth[i];
         const float zTilt = fingerTilt[i];
-        const Vec3 fingerBase{fingerX[i], -0.30f, 0.485f};
-        const Vec3 fingerRotation{-8.0f, 0.0f, zTilt};
+        const float fingerCurl =
+            motion.fingerCurl * (1.0f - 0.10f * static_cast<float>(i));
+        const Vec3 fingerBase{
+            fingerX[i],
+            (knifePose ? -0.28f : -0.30f) + 0.015f * fingerCurl,
+            (knifePose ? 0.39f : 0.485f) + 0.032f * fingerCurl};
+        const Vec3 fingerRotation{-8.0f - 10.0f * fingerCurl,
+                                  0.0f,
+                                  zTilt + 2.0f * fingerCurl};
 
         drawHandBuffer(knuckleMesh(), {fingerX[i], -0.285f, 0.555f},
                        {-5.0f, 0.0f, zTilt * 0.45f},
                        {width * 0.95f, 0.052f, 0.060f});
         drawHandBuffer(mainFinger, fingerBase, fingerRotation,
-                       {width, length, 0.15f});
+                       {width, length * (1.0f - 0.035f * fingerCurl),
+                        0.15f});
         drawHandPivotedBuffer(
             nailMesh(), fingerBase, {0.0f, -length * 0.95f, 0.045f},
             fingerRotation, {width * 0.60f, length * 0.28f, 0.65f});
     }
 
-    const Vec3 thumbPivot{-0.23f, -0.22f, 0.06f};
-    const Vec3 thumbRotation{15.0f, 10.0f, 24.0f};
+    const Vec3 thumbPivot =
+        knifePose ? Vec3{0.18f, -0.16f, 0.04f}
+                  : Vec3{-0.23f, -0.22f, 0.06f};
+    const Vec3 thumbRotation =
+        knifePose ? Vec3{20.0f, -10.0f, -38.0f}
+                  : Vec3{15.0f, 10.0f, 24.0f};
     drawHandPivotedBuffer(thumbMesh(), thumbPivot, {0.0f, -0.15f, 0.02f},
-                          thumbRotation, {0.14f, 0.50f, 0.13f});
+                          {thumbRotation.x - 8.0f * motion.fingerCurl,
+                           thumbRotation.y,
+                           thumbRotation.z + 4.0f * motion.fingerCurl},
+                          {0.14f, 0.50f, 0.13f});
     drawHandPivotedBuffer(nailMesh(), thumbPivot, {0.0f, -0.56f, 0.055f},
-                          thumbRotation, {0.072f, 0.18f, 0.72f});
+                          {thumbRotation.x - 8.0f * motion.fingerCurl,
+                           thumbRotation.y,
+                           thumbRotation.z + 4.0f * motion.fingerCurl},
+                          {0.072f, 0.18f, 0.72f});
+
+    glPopMatrix();
 }
 
 void Pistol::drawMuzzleFlash(float muzzleFlashTimer) {

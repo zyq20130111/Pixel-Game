@@ -116,7 +116,7 @@ MainScene::MainScene()
       camera_(),
       soundManager_(),
       parkingLotScene_(language_),
-      pistol_(),
+      knife_(),
       mainUI_(language_),
       difficultyUI_(language_),
       loadingUI_(language_),
@@ -280,7 +280,7 @@ void MainScene::resetGame() {
                               {0.0f, 1.0f, 0.0f});
     glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     camera_.resetLookTracking(window_);
-    pistol_.reset();
+    knife_.reset();
     bullets_.clear();
     impactEffects_.clear();
     parkingHintTimer_ = 0.0f;
@@ -365,11 +365,14 @@ void MainScene::updateGameplay(float dt) {
     soundManager_.setListener(camera_.position(), camera_.forward(),
                               {0.0f, 1.0f, 0.0f});
     soundManager_.update();
-    const bool playerFired =
-        pistol_.update(window_, camera_, bullets_, soundManager_,
-                       previousFireDown_, dt);
+    const bool playerAttacked =
+        knife_.update(window_, camera_, bullets_, soundManager_,
+                      previousFireDown_, dt);
+    if (playerAttacked) {
+        performKnifeAttack();
+    }
     const int playerDamage =
-        parkingLotScene_.update(dt, camera_.position(), playerFired);
+        parkingLotScene_.update(dt, camera_.position(), playerAttacked);
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
         playerDamageFlashTimer_ = 0.32f;
@@ -477,7 +480,7 @@ bool MainScene::cameraPositionBlocked(const Vec3& position,
     return parkingLotScene_.cameraPositionBlocked(position, currentPosition);
 }
 
-void MainScene::renderFrame(const Camera& camera, bool showPistol) {
+void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     renderScene();
     renderImpactEffects();
@@ -486,8 +489,8 @@ void MainScene::renderFrame(const Camera& camera, bool showPistol) {
         bullet->render();
     }
 
-    if (showPistol) {
-        pistol_.render(camera);
+    if (showWeapon) {
+        knife_.render(camera);
         renderCrosshair();
     }
 
@@ -828,6 +831,43 @@ Vec3 MainScene::pointOnSegment(const Vec3& start, const Vec3& end, float t) {
     return start + (end - start) * t;
 }
 
+void MainScene::performKnifeAttack() {
+    Vec3 start{};
+    Vec3 end{};
+    knife_.attackSegment(camera_, start, end);
+
+    bool hit = false;
+    ImpactType hitType = ImpactType::Geometry;
+    float closestHitT = 2.0f;
+
+    std::size_t guardIndex = 0;
+    float guardHitT = 0.0f;
+    if (parkingLotScene_.segmentHitsGuard(start, end, guardHitT, guardIndex) &&
+        guardHitT < closestHitT) {
+        hit = true;
+        hitType = ImpactType::Character;
+        closestHitT = guardHitT;
+    }
+
+    float geometryHitT = 0.0f;
+    if (parkingLotScene_.segmentHitsGeometry(start, end, geometryHitT) &&
+        geometryHitT < closestHitT) {
+        hit = true;
+        hitType = ImpactType::Geometry;
+        closestHitT = geometryHitT;
+    }
+
+    if (!hit) {
+        return;
+    }
+
+    const Vec3 hitPosition = pointOnSegment(start, end, closestHitT);
+    spawnImpactEffect(hitPosition, hitType);
+    if (hitType == ImpactType::Character) {
+        parkingLotScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
+    }
+}
+
 void MainScene::spawnImpactEffect(const Vec3& position, ImpactType type) {
     if (impactEffects_.size() >=
         static_cast<std::size_t>(kMaxImpactEffects)) {
@@ -951,7 +991,7 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
         case AppState::Playing:
             title = chinese
                         ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
-                        : "Pixel World 3D | Mouse look | LMB fire | RMB aim | "
+                        : "Pixel World 3D | Mouse look | LMB slash | RMB aim | "
                           "E elevator | Shift run | Space jump | Arrows walk | "
                           "WASD move | Esc exit";
             break;

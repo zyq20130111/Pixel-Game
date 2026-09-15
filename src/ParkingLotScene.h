@@ -31,6 +31,8 @@ public:
     bool segmentHitsGuard(const Vec3& start, const Vec3& end, float& hitT,
                           std::size_t& guardIndex) const;
     void applyGuardDamage(std::size_t guardIndex, const Vec3& hitPosition);
+    void applyGuardKnifeDamage(std::size_t guardIndex,
+                               const Vec3& hitPosition);
 
     bool tryCollectAccessCard(const Vec3& playerPosition);
     bool interactWithElevator(const Vec3& playerPosition);

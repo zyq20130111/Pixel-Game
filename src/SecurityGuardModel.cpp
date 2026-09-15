@@ -499,6 +499,19 @@ void SecurityGuardModel::applyPistolDamage(const Vec3& hitPosition) {
     }
 }
 
+void SecurityGuardModel::applyKnifeDamage(const Vec3& hitPosition) {
+    if (!alive_) {
+        return;
+    }
+
+    health_ =
+        std::max(0, health_ - knifeDamageForZone(hitZoneForPoint(hitPosition)));
+    if (health_ <= 0) {
+        alive_ = false;
+        deathTimer_ = 0.0f;
+    }
+}
+
 bool SecurityGuardModel::segmentIntersectsAabb(
     const Vec3& start, const Vec3& end, const Vec3& boundsMin,
     const Vec3& boundsMax, float& hitT) {
@@ -554,6 +567,18 @@ int SecurityGuardModel::pistolDamageForZone(CharacterHitZone zone) {
             return kPistolHeadDamage;
     }
     return kPistolLegDamage;
+}
+
+int SecurityGuardModel::knifeDamageForZone(CharacterHitZone zone) {
+    switch (zone) {
+        case CharacterHitZone::Legs:
+            return kKnifeLegDamage;
+        case CharacterHitZone::Waist:
+            return kKnifeWaistDamage;
+        case CharacterHitZone::Head:
+            return kKnifeHeadDamage;
+    }
+    return kKnifeLegDamage;
 }
 
 int SecurityGuardModel::maxHealthForDifficulty(

@@ -31,6 +31,7 @@ add_executable(
     src/ParkingLotScene.cpp
     src/PistolBullet.cpp
     src/BulletBase.cpp
+    src/Knife.cpp
     src/Pistol.cpp
     src/WeaponBase.cpp
     src/BaseUI.cpp

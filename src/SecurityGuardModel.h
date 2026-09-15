@@ -51,6 +51,7 @@ public:
     bool segmentHit(const Vec3& start, const Vec3& end,
                     float& hitT) const;
     void applyPistolDamage(const Vec3& hitPosition);
+    void applyKnifeDamage(const Vec3& hitPosition);
 
 private:
     static bool segmentIntersectsAabb(const Vec3& start, const Vec3& end,
@@ -58,6 +59,7 @@ private:
                                       const Vec3& boundsMax, float& hitT);
     CharacterHitZone hitZoneForPoint(const Vec3& hitPosition) const;
     static int pistolDamageForZone(CharacterHitZone zone);
+    static int knifeDamageForZone(CharacterHitZone zone);
     int maxHealthForDifficulty(Difficulty difficulty) const;
     int batonDamageForDifficulty(Difficulty difficulty) const;
     float chaseSpeedForDifficulty(Difficulty difficulty) const;

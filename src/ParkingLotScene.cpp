@@ -318,6 +318,17 @@ void ParkingLotScene::applyGuardDamage(std::size_t guardIndex,
     }
 }
 
+void ParkingLotScene::applyGuardKnifeDamage(std::size_t guardIndex,
+                                            const Vec3& hitPosition) {
+    if (guardIndex >= guards_.size()) {
+        return;
+    }
+    guards_[guardIndex].applyKnifeDamage(hitPosition);
+    if (guards_[2].defeated()) {
+        captainDefeated_ = true;
+    }
+}
+
 bool ParkingLotScene::tryCollectAccessCard(const Vec3& playerPosition) {
     if (!captainDefeated_ || accessCardObtained_) {
         return false;
