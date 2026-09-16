@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -109,49 +110,91 @@ bool numberKeyDown(GLFWwindow* window, int mainKey, int keypadKey) {
            glfwGetKey(window, keypadKey) == GLFW_PRESS;
 }
 
+struct InventoryIconPoint {
+    float x;
+    float y;
+};
+
+void drawInventoryPolygon(std::initializer_list<InventoryIconPoint> points,
+                          const Color& color, float alpha) {
+    glColor4f(color.red, color.green, color.blue, alpha);
+    glBegin(GL_POLYGON);
+    for (const InventoryIconPoint& point : points) {
+        glVertex2f(point.x, point.y);
+    }
+    glEnd();
+}
+
 void drawInventoryKnifeIcon(const Rect& slot, float uiScale, float alpha) {
     const float centerX = slot.x + slot.width * 0.5f;
     const float centerY = slot.y + slot.height * 0.47f;
     glPushMatrix();
     glTranslatef(centerX, centerY, 0.0f);
-    glRotatef(-42.0f, 0.0f, 0.0f, 1.0f);
-    ThreeDUtils::drawRect2D(
-        {-5.0f * uiScale, -23.0f * uiScale, 10.0f * uiScale,
-         43.0f * uiScale},
+    glScalef(uiScale, uiScale, 1.0f);
+    glRotatef(-18.0f, 0.0f, 0.0f, 1.0f);
+
+    // Dark silhouette first, then the steel and grip inset.
+    drawInventoryPolygon(
+        {{-35.0f, 0.0f}, {-19.0f, -9.0f}, {8.0f, -7.0f},
+         {13.0f, 0.0f}, {8.0f, 7.0f}, {-19.0f, 9.0f}},
+        kInkColor, alpha);
+    drawInventoryPolygon(
+        {{-32.0f, 0.0f}, {-18.0f, -6.0f}, {6.0f, -5.0f},
+         {9.0f, 0.0f}, {6.0f, 5.0f}, {-18.0f, 6.0f}},
         kKnifeBlade, alpha);
-    ThreeDUtils::drawRect2D(
-        {-7.0f * uiScale, 13.0f * uiScale, 14.0f * uiScale,
-         18.0f * uiScale},
-        kKnifeGrip, alpha);
-    ThreeDUtils::drawRect2D(
-        {-11.0f * uiScale, 8.0f * uiScale, 22.0f * uiScale,
-         5.0f * uiScale},
-        kKnifeGuard, alpha);
+    ThreeDUtils::drawRect2D({-15.0f, -2.0f, 19.0f, 3.0f},
+                            kKnifeBladeEdge, alpha);
+    ThreeDUtils::drawRect2D({4.0f, -10.0f, 5.0f, 20.0f},
+                            kKnifeGuard, alpha);
+    ThreeDUtils::drawRect2D({8.0f, -7.0f, 26.0f, 14.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({10.0f, -5.0f, 22.0f, 10.0f},
+                            kKnifeGrip, alpha);
+    ThreeDUtils::drawRect2D({13.0f, -3.0f, 15.0f, 3.0f},
+                            kKnifeGripDark, alpha);
+    ThreeDUtils::drawRect2D({31.0f, -6.0f, 5.0f, 12.0f},
+                            kKnifeGripDark, alpha);
     glPopMatrix();
 }
 
 void drawInventoryPistolIcon(const Rect& slot, float uiScale, float alpha) {
     const float centerX = slot.x + slot.width * 0.5f;
     const float centerY = slot.y + slot.height * 0.47f;
-    ThreeDUtils::drawRect2D(
-        {centerX - 25.0f * uiScale, centerY - 8.0f * uiScale,
-         42.0f * uiScale, 16.0f * uiScale},
-        kPistolMetal, alpha);
-    ThreeDUtils::drawRect2D(
-        {centerX + 16.0f * uiScale, centerY - 4.0f * uiScale,
-         18.0f * uiScale, 8.0f * uiScale},
-        kPistolHighlight, alpha);
-
     glPushMatrix();
-    glTranslatef(centerX - 5.0f * uiScale, centerY + 5.0f * uiScale, 0.0f);
-    glRotatef(-18.0f, 0.0f, 0.0f, 1.0f);
-    ThreeDUtils::drawRect2D(
-        {-8.0f * uiScale, 0.0f, 16.0f * uiScale, 26.0f * uiScale},
+    glTranslatef(centerX, centerY, 0.0f);
+    glScalef(uiScale, uiScale, 1.0f);
+
+    // Compact side profile: slide, barrel, trigger guard and angled grip.
+    ThreeDUtils::drawRect2D({-31.0f, -11.0f, 39.0f, 19.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-28.0f, -8.0f, 34.0f, 13.0f},
+                            kPistolMetal, alpha);
+    ThreeDUtils::drawRect2D({-23.0f, -6.0f, 25.0f, 3.0f},
+                            kPistolHighlight, alpha);
+    ThreeDUtils::drawRect2D({5.0f, -6.0f, 26.0f, 9.0f},
+                            kPistolMetalDark, alpha);
+    ThreeDUtils::drawRect2D({8.0f, -4.0f, 22.0f, 4.0f},
+                            kPistolHighlight, alpha);
+
+    drawInventoryPolygon(
+        {{-4.0f, 7.0f}, {15.0f, 7.0f}, {10.0f, 34.0f},
+         {-7.0f, 30.0f}},
+        kInkColor, alpha);
+    drawInventoryPolygon(
+        {{-1.0f, 9.0f}, {12.0f, 9.0f}, {8.0f, 30.0f},
+         {-4.0f, 28.0f}},
         kPistolGrip, alpha);
-    ThreeDUtils::drawRect2D(
-        {-5.0f * uiScale, 1.0f * uiScale, 10.0f * uiScale,
-         21.0f * uiScale},
-        kPistolGripDark, alpha);
+    ThreeDUtils::drawRect2D({0.0f, 12.0f, 7.0f, 14.0f},
+                            kPistolGripDark, alpha);
+
+    drawInventoryPolygon(
+        {{-4.0f, 6.0f}, {8.0f, 6.0f}, {5.0f, 20.0f},
+         {-1.0f, 20.0f}},
+        kInkColor, alpha);
+    drawInventoryPolygon(
+        {{-1.0f, 8.0f}, {5.0f, 8.0f}, {3.0f, 17.0f},
+         {1.0f, 17.0f}},
+        kPistolMetalDark, alpha);
     glPopMatrix();
 }
 
