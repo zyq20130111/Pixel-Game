@@ -104,6 +104,57 @@ void drawPromptButton(const Rect& button, const char* label,
         textY, textScale, Color{1.0f, 1.0f, 0.92f});
 }
 
+bool numberKeyDown(GLFWwindow* window, int mainKey, int keypadKey) {
+    return glfwGetKey(window, mainKey) == GLFW_PRESS ||
+           glfwGetKey(window, keypadKey) == GLFW_PRESS;
+}
+
+void drawInventoryKnifeIcon(const Rect& slot, float uiScale, float alpha) {
+    const float centerX = slot.x + slot.width * 0.5f;
+    const float centerY = slot.y + slot.height * 0.47f;
+    glPushMatrix();
+    glTranslatef(centerX, centerY, 0.0f);
+    glRotatef(-42.0f, 0.0f, 0.0f, 1.0f);
+    ThreeDUtils::drawRect2D(
+        {-5.0f * uiScale, -23.0f * uiScale, 10.0f * uiScale,
+         43.0f * uiScale},
+        kKnifeBlade, alpha);
+    ThreeDUtils::drawRect2D(
+        {-7.0f * uiScale, 13.0f * uiScale, 14.0f * uiScale,
+         18.0f * uiScale},
+        kKnifeGrip, alpha);
+    ThreeDUtils::drawRect2D(
+        {-11.0f * uiScale, 8.0f * uiScale, 22.0f * uiScale,
+         5.0f * uiScale},
+        kKnifeGuard, alpha);
+    glPopMatrix();
+}
+
+void drawInventoryPistolIcon(const Rect& slot, float uiScale, float alpha) {
+    const float centerX = slot.x + slot.width * 0.5f;
+    const float centerY = slot.y + slot.height * 0.47f;
+    ThreeDUtils::drawRect2D(
+        {centerX - 25.0f * uiScale, centerY - 8.0f * uiScale,
+         42.0f * uiScale, 16.0f * uiScale},
+        kPistolMetal, alpha);
+    ThreeDUtils::drawRect2D(
+        {centerX + 16.0f * uiScale, centerY - 4.0f * uiScale,
+         18.0f * uiScale, 8.0f * uiScale},
+        kPistolHighlight, alpha);
+
+    glPushMatrix();
+    glTranslatef(centerX - 5.0f * uiScale, centerY + 5.0f * uiScale, 0.0f);
+    glRotatef(-18.0f, 0.0f, 0.0f, 1.0f);
+    ThreeDUtils::drawRect2D(
+        {-8.0f * uiScale, 0.0f, 16.0f * uiScale, 26.0f * uiScale},
+        kPistolGrip, alpha);
+    ThreeDUtils::drawRect2D(
+        {-5.0f * uiScale, 1.0f * uiScale, 10.0f * uiScale,
+         21.0f * uiScale},
+        kPistolGripDark, alpha);
+    glPopMatrix();
+}
+
 }  // namespace
 
 MainScene::MainScene()
@@ -117,6 +168,7 @@ MainScene::MainScene()
       soundManager_(),
       parkingLotScene_(language_),
       knife_(),
+      pistol_(),
       mainUI_(language_),
       difficultyUI_(language_),
       loadingUI_(language_),
@@ -124,7 +176,13 @@ MainScene::MainScene()
       loadingElapsed_(0.0f),
       bullets_(),
       impactEffects_(),
+      equippedWeapon_(WeaponType::Knife),
+      weaponSwitchTarget_(WeaponType::Knife),
+      weaponSwitchElapsed_(0.0f),
+      weaponSwitching_(false),
       previousFireDown_(false),
+      previousWeapon1Down_(false),
+      previousWeapon2Down_(false),
       previousJumpDown_(false),
       previousInteractDown_(false),
       previousRestartDown_(false),
@@ -281,6 +339,11 @@ void MainScene::resetGame() {
     glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     camera_.resetLookTracking(window_);
     knife_.reset();
+    pistol_.reset();
+    equippedWeapon_ = WeaponType::Knife;
+    weaponSwitchTarget_ = equippedWeapon_;
+    weaponSwitchElapsed_ = 0.0f;
+    weaponSwitching_ = false;
     bullets_.clear();
     impactEffects_.clear();
     parkingHintTimer_ = 0.0f;
@@ -291,6 +354,10 @@ void MainScene::resetGame() {
     exitPromptVisible_ = false;
     previousEscapeDown_ =
         glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    previousWeapon1Down_ =
+        numberKeyDown(window_, GLFW_KEY_1, GLFW_KEY_KP_1);
+    previousWeapon2Down_ =
+        numberKeyDown(window_, GLFW_KEY_2, GLFW_KEY_KP_2);
     previousInteractDown_ =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
@@ -355,6 +422,7 @@ void MainScene::updateGameplay(float dt) {
         return;
     }
 
+    updateWeaponSelection(dt);
     camera_.updateLook(window_);
     camera_.update(
         window_, dt, previousJumpDown_,
@@ -365,10 +433,25 @@ void MainScene::updateGameplay(float dt) {
     soundManager_.setListener(camera_.position(), camera_.forward(),
                               {0.0f, 1.0f, 0.0f});
     soundManager_.update();
-    const bool playerAttacked =
-        knife_.update(window_, camera_, bullets_, soundManager_,
-                      previousFireDown_, dt);
-    if (playerAttacked) {
+    bool playerAttacked = false;
+    if (equippedWeapon_ == WeaponType::Knife) {
+        if (weaponSwitching_) {
+            // Let an in-progress slash finish during a weapon change, while
+            // preventing a held mouse button from starting a new attack.
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            knife_.update(window_, camera_, bullets_, soundManager_,
+                          previousFireDown_, dt);
+    } else {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            pistol_.update(window_, camera_, bullets_, soundManager_,
+                           previousFireDown_, dt);
+    }
+    if (playerAttacked && equippedWeapon_ == WeaponType::Knife) {
         performKnifeAttack();
     }
     const int playerDamage =
@@ -490,13 +573,44 @@ void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     }
 
     if (showWeapon) {
-        knife_.render(camera);
+        renderEquippedWeapon(camera);
         renderCrosshair();
     }
 
     if (state_ == AppState::Playing) {
         renderParkingHud();
+        renderWeaponInventory();
     }
+}
+
+void MainScene::renderWeapon(const Camera& camera, WeaponType weapon,
+                             const WeaponRenderMotion& motion) const {
+    if (weapon == WeaponType::Knife) {
+        knife_.render(camera, motion);
+    } else {
+        pistol_.render(camera, motion);
+    }
+}
+
+void MainScene::renderEquippedWeapon(const Camera& camera) const {
+    if (!weaponSwitching_) {
+        renderWeapon(camera, equippedWeapon_, {});
+        return;
+    }
+
+    const float progress = std::clamp(
+        weaponSwitchElapsed_ / kWeaponSwitchDuration, 0.0f, 1.0f);
+    const float eased = ThreeDUtils::smoothStep(progress);
+    const WeaponRenderMotion outgoing{
+        {0.0f, -1.05f * eased, 0.12f * eased},
+        {7.0f * eased, -8.0f * eased, 6.0f * eased}};
+    const float entering = 1.0f - eased;
+    const WeaponRenderMotion incoming{
+        {0.0f, -1.05f * entering, 0.16f * entering},
+        {-7.0f * entering, 8.0f * entering, -6.0f * entering}};
+
+    renderWeapon(camera, equippedWeapon_, outgoing);
+    renderWeapon(camera, weaponSwitchTarget_, incoming);
 }
 
 void MainScene::renderScene() const {
@@ -529,6 +643,47 @@ void MainScene::updateLoading(float dt) {
         glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
     previousInteractDown_ =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
+}
+
+void MainScene::updateWeaponSelection(float dt) {
+    const bool weapon1Down =
+        numberKeyDown(window_, GLFW_KEY_1, GLFW_KEY_KP_1);
+    const bool weapon2Down =
+        numberKeyDown(window_, GLFW_KEY_2, GLFW_KEY_KP_2);
+
+    if (weapon1Down && !previousWeapon1Down_) {
+        requestWeapon(WeaponType::Knife);
+    } else if (weapon2Down && !previousWeapon2Down_) {
+        requestWeapon(WeaponType::Pistol);
+    }
+
+    previousWeapon1Down_ = weapon1Down;
+    previousWeapon2Down_ = weapon2Down;
+
+    if (!weaponSwitching_) {
+        return;
+    }
+
+    weaponSwitchElapsed_ += dt;
+    if (weaponSwitchElapsed_ < kWeaponSwitchDuration) {
+        return;
+    }
+
+    equippedWeapon_ = weaponSwitchTarget_;
+    weaponSwitchElapsed_ = kWeaponSwitchDuration;
+    weaponSwitching_ = false;
+    previousFireDown_ =
+        glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+void MainScene::requestWeapon(WeaponType weapon) {
+    if (weapon == equippedWeapon_ || weapon == weaponSwitchTarget_) {
+        return;
+    }
+
+    weaponSwitchTarget_ = weapon;
+    weaponSwitchElapsed_ = 0.0f;
+    weaponSwitching_ = true;
 }
 
 void MainScene::renderExitPrompt() const {
@@ -802,6 +957,73 @@ void MainScene::renderParkingHud() const {
     }
     ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
                           panel.y + 151.0f * uiScale, textScale, promptColor);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
+
+void MainScene::renderWeaponInventory() const {
+    if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
+        return;
+    }
+
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+    const float slotSize = std::max(58.0f, 78.0f * uiScale);
+    const float gap = std::max(6.0f, 10.0f * uiScale);
+    const float margin = std::max(18.0f, 26.0f * uiScale);
+    const float totalWidth = slotSize * 2.0f + gap;
+    const float startX =
+        static_cast<float>(framebufferWidth_) - margin - totalWidth;
+    const float startY =
+        static_cast<float>(framebufferHeight_) - margin - slotSize;
+    const Rect knifeSlot{startX, startY, slotSize, slotSize};
+    const Rect pistolSlot{startX + slotSize + gap, startY, slotSize, slotSize};
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    const auto drawSlot = [&](const Rect& slot, bool selected) {
+        const Color fill = selected ? Color{0.10f, 0.30f, 0.34f}
+                                    : Color{0.03f, 0.07f, 0.11f};
+        const Color outline = selected ? kSunCore : kInkColor;
+        ThreeDUtils::drawRect2D(
+            {slot.x + 5.0f * uiScale, slot.y + 6.0f * uiScale,
+             slot.width, slot.height},
+            kInkColor, 0.45f);
+        ThreeDUtils::drawRect2D(slot, fill, selected ? 0.96f : 0.84f);
+        ThreeDUtils::drawRect2D(
+            {slot.x, slot.y, slot.width, 5.0f * uiScale},
+            selected ? kSunCore : kPanelBottom, 0.95f);
+        ThreeDUtils::drawFrame2D(
+            slot, outline, std::max(2.0f, (selected ? 4.0f : 2.0f) * uiScale));
+    };
+
+    drawSlot(knifeSlot, equippedWeapon_ == WeaponType::Knife);
+    drawSlot(pistolSlot, equippedWeapon_ == WeaponType::Pistol);
+    drawInventoryKnifeIcon(
+        knifeSlot, uiScale,
+        equippedWeapon_ == WeaponType::Knife ? 1.0f : 0.76f);
+    drawInventoryPistolIcon(
+        pistolSlot, uiScale,
+        equippedWeapon_ == WeaponType::Pistol ? 1.0f : 0.76f);
+
+    const float keyScale = std::max(1.0f, 2.0f * uiScale);
+    const Color keyColor{0.95f, 0.98f, 0.92f};
+    ThreeDUtils::drawText("1", knifeSlot.x + 8.0f * uiScale,
+                          knifeSlot.y + 9.0f * uiScale, keyScale, keyColor);
+    ThreeDUtils::drawText("2", pistolSlot.x + 8.0f * uiScale,
+                          pistolSlot.y + 9.0f * uiScale, keyScale, keyColor);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);

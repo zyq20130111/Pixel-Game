@@ -16,7 +16,8 @@ public:
                 std::vector<std::unique_ptr<BulletBase>>& bullets,
                 SoundManager& soundManager, bool& previousFireDown,
                 float dt) override;
-    void render(const Camera& camera) const override;
+    void render(const Camera& camera,
+                const WeaponRenderMotion& motion) const override;
     float muzzleFlashTimer() const override;
 
 private:

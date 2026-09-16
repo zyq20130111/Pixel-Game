@@ -174,6 +174,7 @@ inline constexpr float kBulletLifetime = 1.2f;
 inline constexpr float kBulletAimDistance = 18.0f;
 inline constexpr float kAimFieldOfViewDegrees = 44.0f;
 inline constexpr float kAimTransitionSpeed = 8.0f;
+inline constexpr float kWeaponSwitchDuration = 0.42f;
 inline constexpr float kMuzzleFlashDuration = 0.10f;
 inline constexpr int kMaxBullets = 32;
 inline constexpr int kMaxImpactEffects = 32;

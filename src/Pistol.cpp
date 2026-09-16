@@ -699,12 +699,19 @@ bool Pistol::update(GLFWwindow* window, const Camera& camera,
     return fired;
 }
 
-void Pistol::render(const Camera& camera) const {
+void Pistol::render(const Camera& camera,
+                    const WeaponRenderMotion& motion) const {
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
+
+    glTranslatef(motion.translation.x, motion.translation.y,
+                 motion.translation.z);
+    glRotatef(motion.rotationDegrees.z, 0.0f, 0.0f, 1.0f);
+    glRotatef(motion.rotationDegrees.y, 0.0f, 1.0f, 0.0f);
+    glRotatef(motion.rotationDegrees.x, 1.0f, 0.0f, 0.0f);
 
     const Vec3 root = weaponRoot(camera, muzzleFlashTimer_);
     glTranslatef(root.x, root.y, root.z);

@@ -8,6 +8,7 @@
 #include "Localization.h"
 #include "MainUI.h"
 #include "ParkingLotScene.h"
+#include "Pistol.h"
 #include "platform.h"
 #include "SceneBase.h"
 #include "SoundManager.h"
@@ -26,6 +27,11 @@ public:
     int run() override;
 
 private:
+    enum class WeaponType {
+        Knife,
+        Pistol,
+    };
+
     bool initialize();
     void resetGame();
     void startLoading(Difficulty difficulty);
@@ -42,6 +48,12 @@ private:
     void renderImpactEffects() const;
     void renderCrosshair() const;
     void renderParkingHud() const;
+    void renderWeaponInventory() const;
+    void updateWeaponSelection(float dt);
+    void requestWeapon(WeaponType weapon);
+    void renderWeapon(const Camera& camera, WeaponType weapon,
+                      const WeaponRenderMotion& motion) const;
+    void renderEquippedWeapon(const Camera& camera) const;
 
     static bool segmentHitsGround(const Vec3& start, const Vec3& end,
                                   float& hitT);
@@ -66,6 +78,7 @@ private:
     SoundManager soundManager_;
     ParkingLotScene parkingLotScene_;
     Knife knife_;
+    Pistol pistol_;
     MainUI mainUI_;
     DifficultyUI difficultyUI_;
     LoadingUI loadingUI_;
@@ -73,7 +86,13 @@ private:
     float loadingElapsed_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;
     std::vector<ImpactEffect> impactEffects_;
+    WeaponType equippedWeapon_;
+    WeaponType weaponSwitchTarget_;
+    float weaponSwitchElapsed_;
+    bool weaponSwitching_;
     bool previousFireDown_;
+    bool previousWeapon1Down_;
+    bool previousWeapon2Down_;
     bool previousJumpDown_;
     bool previousInteractDown_;
     bool previousRestartDown_;
