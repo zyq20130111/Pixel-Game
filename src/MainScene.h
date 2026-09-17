@@ -94,6 +94,8 @@ private:
     bool previousWeapon1Down_;
     bool previousWeapon2Down_;
     bool previousJumpDown_;
+    bool previousCrouchDown_;
+    bool previousProneDown_;
     bool previousInteractDown_;
     bool previousRestartDown_;
     float parkingHintTimer_;

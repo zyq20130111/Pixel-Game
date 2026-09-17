@@ -11,6 +11,12 @@ class Camera {
 public:
     using MovementCollisionTest = std::function<bool(const Vec3&)>;
 
+    enum class Posture {
+        Standing,
+        Crouching,
+        Prone,
+    };
+
     Camera();
     explicit Camera(const Vec3& position);
 
@@ -31,6 +37,8 @@ public:
     bool running() const;
     bool moving() const;
     bool grounded() const;
+    Posture posture() const;
+    void setPosture(Posture posture);
 
     Vec3 toWorld(const Vec3& viewPosition) const;
     void apply() const;
@@ -45,6 +53,7 @@ private:
     bool grounded_;
     bool running_;
     bool moving_;
+    Posture posture_;
     double lastCursorX_;
     double lastCursorY_;
     bool lookInitialized_;

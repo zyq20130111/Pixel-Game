@@ -227,6 +227,8 @@ MainScene::MainScene()
       previousWeapon1Down_(false),
       previousWeapon2Down_(false),
       previousJumpDown_(false),
+      previousCrouchDown_(false),
+      previousProneDown_(false),
       previousInteractDown_(false),
       previousRestartDown_(false),
       parkingHintTimer_(0.0f),
@@ -405,6 +407,10 @@ void MainScene::resetGame() {
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
         glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+    previousCrouchDown_ =
+        glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+    previousProneDown_ =
+        glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
     previousPromptMouseDown_ =
         glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 }
@@ -446,11 +452,21 @@ void MainScene::updateExitPrompt() {
         previousFireDown_ = promptMouse_.pressed;
         previousJumpDown_ =
             glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
+        previousCrouchDown_ =
+            glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+        previousProneDown_ =
+            glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
     }
 }
 
 void MainScene::updateGameplay(float dt) {
+    const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+    const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
+    const bool crouchPressed = crouchDown && !previousCrouchDown_;
+    const bool pronePressed = proneDown && !previousProneDown_;
     if (parkingLotScene_.levelComplete()) {
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
         return;
     }
 
@@ -462,7 +478,18 @@ void MainScene::updateGameplay(float dt) {
             return;
         }
         previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
         return;
+    }
+
+    if (crouchPressed || pronePressed) {
+        if (camera_.posture() == Camera::Posture::Standing) {
+            camera_.setPosture(crouchPressed ? Camera::Posture::Crouching
+                                              : Camera::Posture::Prone);
+        } else {
+            camera_.setPosture(Camera::Posture::Standing);
+        }
     }
 
     updateWeaponSelection(dt);
@@ -524,6 +551,8 @@ void MainScene::updateGameplay(float dt) {
     }
     previousInteractDown_ = interactDown;
     previousRestartDown_ = restartDown;
+    previousCrouchDown_ = crouchDown;
+    previousProneDown_ = proneDown;
     updateImpactEffects(dt);
     updateBullets(dt);
 }
@@ -688,6 +717,10 @@ void MainScene::updateLoading(float dt) {
         glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
     previousInteractDown_ =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
+    previousCrouchDown_ =
+        glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+    previousProneDown_ =
+        glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
 }
 
 void MainScene::updateWeaponSelection(float dt) {
@@ -1259,8 +1292,8 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
             title = chinese
                         ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
                         : "Pixel World 3D | Mouse look | LMB slash | RMB aim | "
-                          "E elevator | Shift run | Space jump | Arrows walk | "
-                          "WASD move | Esc exit";
+                          "E elevator | Shift run | Space jump | C crouch | "
+                          "Z prone | Arrows walk | WASD move | Esc exit";
             break;
     }
     if (title == lastTitle) {

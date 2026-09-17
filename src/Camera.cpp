@@ -8,6 +8,34 @@
 
 namespace pixel_world {
 
+namespace {
+
+float postureHeight(Camera::Posture posture) {
+    switch (posture) {
+        case Camera::Posture::Crouching:
+            return constants::kCameraCrouchHeight;
+        case Camera::Posture::Prone:
+            return constants::kCameraProneHeight;
+        case Camera::Posture::Standing:
+        default:
+            return constants::kCameraGroundHeight;
+    }
+}
+
+float postureSpeedMultiplier(Camera::Posture posture) {
+    switch (posture) {
+        case Camera::Posture::Crouching:
+            return constants::kCharacterCrouchSpeedMultiplier;
+        case Camera::Posture::Prone:
+            return constants::kCharacterProneSpeedMultiplier;
+        case Camera::Posture::Standing:
+        default:
+            return 1.0f;
+    }
+}
+
+}  // namespace
+
 Camera::Camera() {
     reset();
 }
@@ -26,6 +54,7 @@ void Camera::reset(const Vec3& position) {
     grounded_ = true;
     running_ = false;
     moving_ = false;
+    posture_ = Posture::Standing;
     lastCursorX_ = 0.0;
     lastCursorY_ = 0.0;
     lookInitialized_ = false;
@@ -52,9 +81,10 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
     }
 
     moving_ = ThreeDUtils::length(input) > 0.0f;
-    running_ =
-        moving_ && (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-                    glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+    const bool runDown =
+        glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    running_ = moving_ && posture_ == Posture::Standing && runDown;
     if (moving_) {
         input = ThreeDUtils::normalize(input);
         const Vec3 forward =
@@ -62,7 +92,7 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
         const Vec3 right = ThreeDUtils::cameraRight(yawDegrees_, 0.0f);
         const Vec3 direction = right * input.x + forward * (-input.z);
         const float speed =
-            constants::kCameraMoveSpeed *
+            constants::kCameraMoveSpeed * postureSpeedMultiplier(posture_) *
             (running_ ? constants::kCameraRunSpeedMultiplier : 1.0f);
         const Vec3 displacement = direction * (speed * dt);
         const float longestAxisMove =
@@ -105,16 +135,21 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
 
     const bool jumpDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
     if (jumpDown && !previousJumpDown && grounded_) {
-        verticalVelocity_ = constants::kCameraJumpVelocity;
-        grounded_ = false;
+        if (posture_ != Posture::Standing) {
+            setPosture(Posture::Standing);
+        } else {
+            verticalVelocity_ = constants::kCameraJumpVelocity;
+            grounded_ = false;
+        }
     }
     previousJumpDown = jumpDown;
 
     if (!grounded_ || verticalVelocity_ != 0.0f) {
         verticalVelocity_ -= constants::kCameraGravity * dt;
         position_.y += verticalVelocity_ * dt;
-        if (position_.y <= constants::kCameraGroundHeight) {
-            position_.y = constants::kCameraGroundHeight;
+        const float groundHeight = postureHeight(posture_);
+        if (position_.y <= groundHeight) {
+            position_.y = groundHeight;
             verticalVelocity_ = 0.0f;
             grounded_ = true;
         }
@@ -210,6 +245,17 @@ bool Camera::moving() const {
 
 bool Camera::grounded() const {
     return grounded_;
+}
+
+Camera::Posture Camera::posture() const {
+    return posture_;
+}
+
+void Camera::setPosture(Posture posture) {
+    posture_ = posture;
+    if (grounded_) {
+        position_.y = postureHeight(posture_);
+    }
 }
 
 Vec3 Camera::toWorld(const Vec3& viewPosition) const {
