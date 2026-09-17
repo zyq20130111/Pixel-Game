@@ -46,6 +46,8 @@ public:
 private:
     Vec3 position_;
     float verticalVelocity_;
+    float jumpOffset_;
+    float currentHeight_;
     float yawDegrees_;
     float pitchDegrees_;
     float walkPhase_;

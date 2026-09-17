@@ -407,6 +407,8 @@ void MainScene::resetGame() {
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
         glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+    previousJumpDown_ =
+        glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
     previousCrouchDown_ =
         glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
     previousProneDown_ =
@@ -1292,7 +1294,7 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
             title = chinese
                         ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
                         : "Pixel World 3D | Mouse look | LMB slash | RMB aim | "
-                          "E elevator | Shift run | Space jump | C crouch | "
+                          "E elevator | Shift run | Space jump/stand | C crouch | "
                           "Z prone | Arrows walk | WASD move | Esc exit";
             break;
     }

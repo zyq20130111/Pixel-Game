@@ -17,6 +17,7 @@ inline constexpr float kCameraRunCycleMultiplier = 1.55f;
 inline constexpr float kCameraGroundHeight = 2.8f;
 inline constexpr float kCameraCrouchHeight = 1.9f;
 inline constexpr float kCameraProneHeight = 1.1f;
+inline constexpr float kCameraStanceTransitionSpeed = 10.0f;
 inline constexpr float kCameraJumpVelocity = 5.8f;
 inline constexpr float kCameraGravity = 14.0f;
 inline constexpr float kCameraLookSensitivity = 0.12f;

@@ -47,6 +47,8 @@ Camera::Camera(const Vec3& position) {
 void Camera::reset(const Vec3& position) {
     position_ = position;
     verticalVelocity_ = 0.0f;
+    jumpOffset_ = 0.0f;
+    currentHeight_ = position.y;
     yawDegrees_ = 0.0f;
     pitchDegrees_ = 0.0f;
     walkPhase_ = 0.0f;
@@ -139,21 +141,30 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
             setPosture(Posture::Standing);
         } else {
             verticalVelocity_ = constants::kCameraJumpVelocity;
+            jumpOffset_ = 0.0f;
             grounded_ = false;
         }
     }
     previousJumpDown = jumpDown;
 
+    const float targetHeight = postureHeight(posture_);
+    const float transition =
+        1.0f - std::exp(-constants::kCameraStanceTransitionSpeed * dt);
+    currentHeight_ += (targetHeight - currentHeight_) * transition;
+    if (std::abs(targetHeight - currentHeight_) <= 0.001f) {
+        currentHeight_ = targetHeight;
+    }
+
     if (!grounded_ || verticalVelocity_ != 0.0f) {
         verticalVelocity_ -= constants::kCameraGravity * dt;
-        position_.y += verticalVelocity_ * dt;
-        const float groundHeight = postureHeight(posture_);
-        if (position_.y <= groundHeight) {
-            position_.y = groundHeight;
+        jumpOffset_ += verticalVelocity_ * dt;
+        if (jumpOffset_ <= 0.0f) {
+            jumpOffset_ = 0.0f;
             verticalVelocity_ = 0.0f;
             grounded_ = true;
         }
     }
+    position_.y = currentHeight_ + jumpOffset_;
 
     return moving_;
 }
@@ -253,9 +264,6 @@ Camera::Posture Camera::posture() const {
 
 void Camera::setPosture(Posture posture) {
     posture_ = posture;
-    if (grounded_) {
-        position_.y = postureHeight(posture_);
-    }
 }
 
 Vec3 Camera::toWorld(const Vec3& viewPosition) const {
