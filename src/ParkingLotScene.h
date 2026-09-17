@@ -54,6 +54,8 @@ private:
     static Vec3 pointOnSegment(const Vec3& start, const Vec3& end, float t);
     bool canGuardSeePlayer(const SecurityGuardModel& guard,
                            const Vec3& playerPosition) const;
+    bool canGuardHitPlayer(const SecurityGuardModel& guard,
+                           const Vec3& playerPosition) const;
     bool guardPositionBlocked(const Vec3& position,
                               const Vec3& currentPosition,
                               std::size_t movingGuardIndex,
@@ -78,6 +80,7 @@ private:
     bool levelComplete_;
     float elevatorOpenAmount_;
     bool groupAlerted_;
+    float groupAlertTimer_;
     Vec3 accessCardPosition_;
     Language language_;
     Difficulty difficulty_;

@@ -16,6 +16,7 @@ enum class SecurityGuardState {
     Patrol,
     Chasing,
     Attacking,
+    Returning,
 };
 
 class SecurityGuardModel final {
@@ -27,7 +28,8 @@ public:
 
     void reset();
     void update(float dt);
-    int update(float dt, const Vec3& playerPosition, bool playerVisible,
+    int update(float dt, const Vec3& playerPosition, bool playerDetected,
+               bool weaponCanHitPlayer,
                const MovementCollisionTest& collisionTest);
     void render() const;
     void renderHealthBar() const;
@@ -44,6 +46,8 @@ public:
     bool isCaptain() const;
     bool playerDetected() const;
     bool attacking() const;
+    bool returning() const;
+    bool weaponCanHitPlayer(const Vec3& playerPosition) const;
     int health() const;
     int maxHealth() const;
     float yawDegrees() const;
@@ -66,12 +70,15 @@ private:
     float attackLungeSpeedForDifficulty(Difficulty difficulty) const;
     float attackLungeSpeedAtProgress(float progress) const;
     void updatePatrol(float dt, const MovementCollisionTest& collisionTest);
+    bool updateReturning(float dt, const MovementCollisionTest& collisionTest);
+    void beginReturning();
     bool moveTo(const Vec3& target, float maxDistance,
                 const MovementCollisionTest& collisionTest);
 
     SecurityGuardRole role_;
     Difficulty difficulty_;
     Vec3 position_;
+    Vec3 homePosition_;
     float yawDegrees_;
     float animationPhase_;
     float deathTimer_;

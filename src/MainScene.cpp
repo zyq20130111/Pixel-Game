@@ -497,8 +497,10 @@ void MainScene::updateGameplay(float dt) {
     if (playerAttacked && equippedWeapon_ == WeaponType::Knife) {
         performKnifeAttack();
     }
+    const bool playerFired =
+        playerAttacked && equippedWeapon_ == WeaponType::Pistol;
     const int playerDamage =
-        parkingLotScene_.update(dt, camera_.position(), playerAttacked);
+        parkingLotScene_.update(dt, camera_.position(), playerFired);
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
         playerDamageFlashTimer_ = 0.32f;

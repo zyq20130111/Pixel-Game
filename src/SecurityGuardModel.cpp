@@ -27,6 +27,7 @@ constexpr float kGuardAttackLungeEnd = 0.38f;
 constexpr float kGuardAttackHitStart = 0.36f;
 constexpr float kGuardAlertDuration = 3.5f;
 constexpr float kGuardAttackCooldown = 0.62f;
+constexpr float kGuardMaxChaseDistance = 17.0f;
 
 float smoothStep01(float value) {
     const float t = std::clamp(value, 0.0f, 1.0f);
@@ -39,6 +40,7 @@ SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
     : role_(role),
       difficulty_(Difficulty::Normal),
       position_({0.0f, 0.0f, 0.0f}),
+      homePosition_({0.0f, 0.0f, 0.0f}),
       yawDegrees_(180.0f),
       animationPhase_(0.0f),
       deathTimer_(0.0f),
@@ -59,6 +61,7 @@ SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
 }
 
 void SecurityGuardModel::reset() {
+    position_ = homePosition_;
     yawDegrees_ = 0.0f;
     animationPhase_ = 0.0f;
     deathTimer_ = 0.0f;
@@ -74,11 +77,12 @@ void SecurityGuardModel::reset() {
 }
 
 void SecurityGuardModel::update(float dt) {
-    update(dt, position_, false, MovementCollisionTest{});
+    update(dt, position_, false, false, MovementCollisionTest{});
 }
 
 int SecurityGuardModel::update(
-    float dt, const Vec3& playerPosition, bool playerVisible,
+    float dt, const Vec3& playerPosition, bool playerDetected,
+    bool weaponCanHitPlayer,
     const MovementCollisionTest& collisionTest) {
     if (!alive_) {
         deathTimer_ = std::min(kDeathDuration, deathTimer_ + dt);
@@ -88,18 +92,37 @@ int SecurityGuardModel::update(
     }
 
     attackCooldown_ = std::max(0.0f, attackCooldown_ - dt);
+
     const Vec3 playerDirection{playerPosition.x - position_.x, 0.0f,
                                playerPosition.z - position_.z};
     const float playerDistance = ThreeDUtils::length(playerDirection);
 
-    if (playerVisible) {
+    if (playerDetected) {
         playerDetected_ = true;
         alertTimer_ = kGuardAlertDuration;
+        if (state_ == SecurityGuardState::Returning) {
+            state_ = SecurityGuardState::Chasing;
+        }
     } else if (playerDetected_) {
         alertTimer_ = std::max(0.0f, alertTimer_ - dt);
         if (alertTimer_ <= 0.0f) {
             playerDetected_ = false;
         }
+    }
+
+    // A direct sighting can interrupt a return, while a group alarm is
+    // filtered by ParkingLotScene until the guard reaches its home position.
+    if (state_ == SecurityGuardState::Returning) {
+        updateReturning(dt, collisionTest);
+        return 0;
+    }
+
+    const Vec3 homeDirection{position_.x - homePosition_.x, 0.0f,
+                             position_.z - homePosition_.z};
+    if (state_ == SecurityGuardState::Chasing && playerDetected_ &&
+        ThreeDUtils::length(homeDirection) > kGuardMaxChaseDistance) {
+        beginReturning();
+        return 0;
     }
 
     if (state_ == SecurityGuardState::Attacking) {
@@ -145,14 +168,18 @@ int SecurityGuardModel::update(
         int damage = 0;
         if (!attackHit_ && attackTimer_ >= kGuardAttackHitStart) {
             attackHit_ = true;
-            if (currentPlayerDistance <= kGuardAttackDistance + 0.20f) {
+            if (weaponCanHitPlayer &&
+                currentPlayerDistance <= kGuardAttackDistance + 0.20f) {
                 damage = batonDamageForDifficulty(difficulty_);
             }
         }
 
         if (attackTimer_ >= kGuardAttackDuration) {
-            state_ = playerDetected_ ? SecurityGuardState::Chasing
-                                     : SecurityGuardState::Patrol;
+            if (playerDetected_) {
+                state_ = SecurityGuardState::Chasing;
+            } else {
+                state_ = SecurityGuardState::Patrol;
+            }
             attackTimer_ = 0.0f;
             attackCooldown_ = kGuardAttackCooldown;
             attackHit_ = false;
@@ -161,7 +188,7 @@ int SecurityGuardModel::update(
     }
 
     if (playerDetected_) {
-        if (playerDistance <= kGuardAttackDistance &&
+        if (weaponCanHitPlayer && playerDistance <= kGuardAttackDistance &&
             attackCooldown_ <= 0.0f) {
             state_ = SecurityGuardState::Attacking;
             attackTimer_ = 0.0f;
@@ -218,7 +245,8 @@ void SecurityGuardModel::render() const {
                          0.0f, 1.0f)
             : 0.0f;
     const float legSwing =
-        alive_ && (patrolling_ || state_ == SecurityGuardState::Chasing)
+        alive_ && (patrolling_ || state_ == SecurityGuardState::Chasing ||
+                   state_ == SecurityGuardState::Returning)
             ? std::sin(animationPhase_) * 0.08f
             : (attackActive
                    ? std::sin(attackLungeProgress * kPi) * 0.13f
@@ -423,6 +451,7 @@ void SecurityGuardModel::setDifficulty(Difficulty difficulty) {
 
 void SecurityGuardModel::setPosition(const Vec3& position) {
     position_ = position;
+    homePosition_ = position;
 }
 
 void SecurityGuardModel::setPatrolling(bool patrolling) {
@@ -457,6 +486,21 @@ bool SecurityGuardModel::playerDetected() const {
 
 bool SecurityGuardModel::attacking() const {
     return state_ == SecurityGuardState::Attacking;
+}
+
+bool SecurityGuardModel::returning() const {
+    return state_ == SecurityGuardState::Returning;
+}
+
+bool SecurityGuardModel::weaponCanHitPlayer(
+    const Vec3& playerPosition) const {
+    if (!alive_) {
+        return false;
+    }
+
+    const Vec3 direction{playerPosition.x - position_.x, 0.0f,
+                         playerPosition.z - position_.z};
+    return ThreeDUtils::length(direction) <= kGuardAttackDistance + 0.20f;
 }
 
 int SecurityGuardModel::health() const {
@@ -680,6 +724,40 @@ void SecurityGuardModel::updatePatrol(
     } else {
         animationPhase_ += dt * 1.5f;
     }
+}
+
+bool SecurityGuardModel::updateReturning(
+    float dt, const MovementCollisionTest& collisionTest) {
+    const Vec3 direction{homePosition_.x - position_.x, 0.0f,
+                         homePosition_.z - position_.z};
+    const float distance = ThreeDUtils::length(direction);
+    if (distance <= 0.16f) {
+        position_ = homePosition_;
+        state_ = SecurityGuardState::Patrol;
+        playerDetected_ = false;
+        alertTimer_ = 0.0f;
+        patrolWaypointIndex_ = 0;
+        animationPhase_ = 0.0f;
+        return true;
+    }
+
+    if (distance > 0.001f) {
+        yawDegrees_ =
+            std::atan2(direction.x, direction.z) * 180.0f / kPi;
+    }
+    if (moveTo(homePosition_, chaseSpeedForDifficulty(difficulty_) * dt,
+               collisionTest)) {
+        animationPhase_ += dt * 10.0f;
+    }
+    return true;
+}
+
+void SecurityGuardModel::beginReturning() {
+    state_ = SecurityGuardState::Returning;
+    playerDetected_ = false;
+    alertTimer_ = 0.0f;
+    attackTimer_ = 0.0f;
+    attackHit_ = false;
 }
 
 bool SecurityGuardModel::moveTo(

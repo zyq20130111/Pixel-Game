@@ -25,6 +25,7 @@ constexpr float kGuardEyeHeight = 2.25f;
 constexpr float kGuardSightDistance = 15.0f;
 constexpr float kGuardCollisionRadius = 0.62f;
 constexpr float kGuardPlayerClearance = 0.92f;
+constexpr float kGuardAlarmDuration = 4.0f;
 
 constexpr ParkingLotScene::Box kSolidBoxes[] = {
     {{-6.0f, 1.35f, 0.1f}, {1.25f, 2.7f, 1.25f}},
@@ -77,6 +78,7 @@ ParkingLotScene::ParkingLotScene(Language language)
       levelComplete_(false),
       elevatorOpenAmount_(0.0f),
       groupAlerted_(false),
+      groupAlertTimer_(0.0f),
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
       language_(language),
       difficulty_(Difficulty::Normal),
@@ -92,6 +94,7 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     levelComplete_ = false;
     elevatorOpenAmount_ = 0.0f;
     groupAlerted_ = false;
+    groupAlertTimer_ = 0.0f;
     accessCardPosition_ = {0.0f, 1.1f, -6.6f};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
@@ -131,19 +134,23 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
     }
 
     if (playerFired || directThreatDetected) {
-        groupAlerted_ = true;
+        groupAlertTimer_ = kGuardAlarmDuration;
     }
-    const bool groupAlertActive = groupAlerted_;
+    groupAlertTimer_ = std::max(0.0f, groupAlertTimer_ - dt);
+    groupAlerted_ = groupAlertTimer_ > 0.0f;
 
     int playerDamage = 0;
     for (std::size_t index = 0; index < guards_.size(); ++index) {
         SecurityGuardModel& guard = guards_[index];
-        const bool playerVisible =
+        const bool playerDetected =
             guard.alive() &&
-            (guardSeesPlayer[index] || groupAlertActive);
+            (guardSeesPlayer[index] ||
+             (groupAlerted_ && !guard.returning()));
+        const bool weaponCanHitPlayer =
+            guard.alive() && canGuardHitPlayer(guard, playerPosition);
         const Vec3 currentGuardPosition = guard.position();
         playerDamage += guard.update(
-            dt, playerPosition, playerVisible,
+            dt, playerPosition, playerDetected, weaponCanHitPlayer,
             [this, index, &playerPosition, currentGuardPosition](
                 const Vec3& position) {
                 return guardPositionBlocked(position, currentGuardPosition,
@@ -453,7 +460,7 @@ bool ParkingLotScene::canGuardSeePlayer(
     const Vec3 facing{std::sin(yawRadians), 0.0f,
                       std::cos(yawRadians)};
     constexpr float kCosSightHalfAngle =
-        0.573576436351046f;  // cos(55 degrees)
+        0.17364817766693033f;  // cos(80 degrees), 160 degree field of view
     if (ThreeDUtils::dot(direction, {facing.x, 0.0f, facing.z}) <
         kCosSightHalfAngle) {
         return false;
@@ -466,6 +473,18 @@ bool ParkingLotScene::canGuardSeePlayer(
                          playerPosition.z};
     float hitT = 0.0f;
     return !segmentHitsGeometry(guardEye, playerEye, hitT);
+}
+
+bool ParkingLotScene::canGuardHitPlayer(
+    const SecurityGuardModel& guard, const Vec3& playerPosition) const {
+    if (!guard.weaponCanHitPlayer(playerPosition)) {
+        return false;
+    }
+
+    const Vec3 weaponPosition{guard.position().x, guard.position().y + 1.08f,
+                              guard.position().z};
+    float hitT = 0.0f;
+    return !segmentHitsGeometry(weaponPosition, playerPosition, hitT);
 }
 
 bool ParkingLotScene::guardPositionBlocked(
