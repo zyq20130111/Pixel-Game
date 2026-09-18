@@ -11,6 +11,7 @@
 #include "Pistol.h"
 #include "platform.h"
 #include "SceneBase.h"
+#include "SniperRifle.h"
 #include "SoundManager.h"
 #include "types.h"
 
@@ -30,6 +31,7 @@ private:
     enum class WeaponType {
         Knife,
         Pistol,
+        Sniper,
     };
 
     bool initialize();
@@ -79,6 +81,7 @@ private:
     ParkingLotScene parkingLotScene_;
     Knife knife_;
     Pistol pistol_;
+    SniperRifle sniperRifle_;
     MainUI mainUI_;
     DifficultyUI difficultyUI_;
     LoadingUI loadingUI_;
@@ -93,6 +96,7 @@ private:
     bool previousFireDown_;
     bool previousWeapon1Down_;
     bool previousWeapon2Down_;
+    bool previousWeapon3Down_;
     bool previousJumpDown_;
     bool previousCrouchDown_;
     bool previousProneDown_;

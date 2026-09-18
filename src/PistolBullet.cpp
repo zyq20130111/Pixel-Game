@@ -119,7 +119,7 @@ const BulletVertexBuffer& bulletSphereMesh() {
 
 PistolBullet::PistolBullet(const Vec3& position, const Vec3& velocity,
                            float lifetime)
-    : BulletBase(position, velocity, lifetime) {}
+    : BulletBase(position, velocity, lifetime, BulletType::Pistol) {}
 
 void PistolBullet::render() const {
     glPushMatrix();

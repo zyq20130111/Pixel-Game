@@ -3,8 +3,11 @@
 namespace pixel_world {
 
 BulletBase::BulletBase(const Vec3& position, const Vec3& velocity,
-                       float lifetime)
-    : position_(position), velocity_(velocity), lifetime_(lifetime) {}
+                       float lifetime, BulletType type)
+    : position_(position),
+      velocity_(velocity),
+      lifetime_(lifetime),
+      type_(type) {}
 
 BulletBase::~BulletBase() = default;
 
@@ -31,6 +34,10 @@ const Vec3& BulletBase::velocity() const {
 
 float BulletBase::lifetime() const {
     return lifetime_;
+}
+
+BulletType BulletBase::type() const {
+    return type_;
 }
 
 void BulletBase::setPosition(const Vec3& position) {

@@ -198,6 +198,37 @@ void drawInventoryPistolIcon(const Rect& slot, float uiScale, float alpha) {
     glPopMatrix();
 }
 
+void drawInventorySniperIcon(const Rect& slot, float uiScale, float alpha) {
+    const float centerX = slot.x + slot.width * 0.5f;
+    const float centerY = slot.y + slot.height * 0.47f;
+    glPushMatrix();
+    glTranslatef(centerX, centerY, 0.0f);
+    glScalef(uiScale, uiScale, 1.0f);
+
+    // Side profile: stock, receiver, long barrel and scope.
+    ThreeDUtils::drawRect2D({-40.0f, -8.0f, 22.0f, 17.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-36.0f, -5.0f, 30.0f, 11.0f},
+                            kSniperStock, alpha);
+    ThreeDUtils::drawRect2D({-16.0f, -12.0f, 40.0f, 20.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-13.0f, -9.0f, 35.0f, 14.0f},
+                            kSniperMetal, alpha);
+    ThreeDUtils::drawRect2D({20.0f, -6.0f, 30.0f, 8.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({22.0f, -4.0f, 30.0f, 4.0f},
+                            kSniperBarrel, alpha);
+    ThreeDUtils::drawRect2D({-6.0f, -18.0f, 21.0f, 6.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-3.0f, -16.0f, 15.0f, 3.0f},
+                            kSniperScope, alpha);
+    ThreeDUtils::drawRect2D({-8.0f, 8.0f, 6.0f, 17.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-5.0f, 10.0f, 4.0f, 12.0f},
+                            kSniperMetalDark, alpha);
+    glPopMatrix();
+}
+
 }  // namespace
 
 MainScene::MainScene()
@@ -212,6 +243,7 @@ MainScene::MainScene()
       parkingLotScene_(language_),
       knife_(),
       pistol_(),
+      sniperRifle_(),
       mainUI_(language_),
       difficultyUI_(language_),
       loadingUI_(language_),
@@ -226,6 +258,7 @@ MainScene::MainScene()
       previousFireDown_(false),
       previousWeapon1Down_(false),
       previousWeapon2Down_(false),
+      previousWeapon3Down_(false),
       previousJumpDown_(false),
       previousCrouchDown_(false),
       previousProneDown_(false),
@@ -385,6 +418,7 @@ void MainScene::resetGame() {
     camera_.resetLookTracking(window_);
     knife_.reset();
     pistol_.reset();
+    sniperRifle_.reset();
     equippedWeapon_ = WeaponType::Knife;
     weaponSwitchTarget_ = equippedWeapon_;
     weaponSwitchElapsed_ = 0.0f;
@@ -403,6 +437,8 @@ void MainScene::resetGame() {
         numberKeyDown(window_, GLFW_KEY_1, GLFW_KEY_KP_1);
     previousWeapon2Down_ =
         numberKeyDown(window_, GLFW_KEY_2, GLFW_KEY_KP_2);
+    previousWeapon3Down_ =
+        numberKeyDown(window_, GLFW_KEY_3, GLFW_KEY_KP_3);
     previousInteractDown_ =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
@@ -515,19 +551,27 @@ void MainScene::updateGameplay(float dt) {
         playerAttacked =
             knife_.update(window_, camera_, bullets_, soundManager_,
                           previousFireDown_, dt);
-    } else {
+    } else if (equippedWeapon_ == WeaponType::Pistol) {
         if (weaponSwitching_) {
             previousFireDown_ = true;
         }
         playerAttacked =
             pistol_.update(window_, camera_, bullets_, soundManager_,
                            previousFireDown_, dt);
+    } else {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            sniperRifle_.update(window_, camera_, bullets_, soundManager_,
+                                previousFireDown_, dt);
     }
     if (playerAttacked && equippedWeapon_ == WeaponType::Knife) {
         performKnifeAttack();
     }
     const bool playerFired =
-        playerAttacked && equippedWeapon_ == WeaponType::Pistol;
+        playerAttacked && (equippedWeapon_ == WeaponType::Pistol ||
+                           equippedWeapon_ == WeaponType::Sniper);
     const int playerDamage =
         parkingLotScene_.update(dt, camera_.position(), playerFired);
     if (playerDamage > 0) {
@@ -603,7 +647,12 @@ void MainScene::updateBullets(float dt) {
             bullet->expire();
             spawnImpactEffect(hitPosition, hitType);
             if (hitType == ImpactType::Character) {
-                parkingLotScene_.applyGuardDamage(guardIndex, hitPosition);
+                if (bullet->type() == BulletType::Sniper) {
+                    parkingLotScene_.applyGuardSniperDamage(guardIndex,
+                                                            hitPosition);
+                } else {
+                    parkingLotScene_.applyGuardDamage(guardIndex, hitPosition);
+                }
             }
         }
     }
@@ -663,8 +712,10 @@ void MainScene::renderWeapon(const Camera& camera, WeaponType weapon,
                              const WeaponRenderMotion& motion) const {
     if (weapon == WeaponType::Knife) {
         knife_.render(camera, motion);
-    } else {
+    } else if (weapon == WeaponType::Pistol) {
         pistol_.render(camera, motion);
+    } else {
+        sniperRifle_.render(camera, motion);
     }
 }
 
@@ -730,15 +781,20 @@ void MainScene::updateWeaponSelection(float dt) {
         numberKeyDown(window_, GLFW_KEY_1, GLFW_KEY_KP_1);
     const bool weapon2Down =
         numberKeyDown(window_, GLFW_KEY_2, GLFW_KEY_KP_2);
+    const bool weapon3Down =
+        numberKeyDown(window_, GLFW_KEY_3, GLFW_KEY_KP_3);
 
     if (weapon1Down && !previousWeapon1Down_) {
         requestWeapon(WeaponType::Knife);
     } else if (weapon2Down && !previousWeapon2Down_) {
         requestWeapon(WeaponType::Pistol);
+    } else if (weapon3Down && !previousWeapon3Down_) {
+        requestWeapon(WeaponType::Sniper);
     }
 
     previousWeapon1Down_ = weapon1Down;
     previousWeapon2Down_ = weapon2Down;
+    previousWeapon3Down_ = weapon3Down;
 
     if (!weaponSwitching_) {
         return;
@@ -1059,13 +1115,15 @@ void MainScene::renderWeaponInventory() const {
     const float slotSize = std::max(58.0f, 78.0f * uiScale);
     const float gap = std::max(6.0f, 10.0f * uiScale);
     const float margin = std::max(18.0f, 26.0f * uiScale);
-    const float totalWidth = slotSize * 2.0f + gap;
+    const float totalWidth = slotSize * 3.0f + gap * 2.0f;
     const float startX =
         static_cast<float>(framebufferWidth_) - margin - totalWidth;
     const float startY =
         static_cast<float>(framebufferHeight_) - margin - slotSize;
     const Rect knifeSlot{startX, startY, slotSize, slotSize};
     const Rect pistolSlot{startX + slotSize + gap, startY, slotSize, slotSize};
+    const Rect sniperSlot{startX + (slotSize + gap) * 2.0f, startY, slotSize,
+                          slotSize};
 
     ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
     glDisable(GL_DEPTH_TEST);
@@ -1091,12 +1149,16 @@ void MainScene::renderWeaponInventory() const {
 
     drawSlot(knifeSlot, equippedWeapon_ == WeaponType::Knife);
     drawSlot(pistolSlot, equippedWeapon_ == WeaponType::Pistol);
+    drawSlot(sniperSlot, equippedWeapon_ == WeaponType::Sniper);
     drawInventoryKnifeIcon(
         knifeSlot, uiScale,
         equippedWeapon_ == WeaponType::Knife ? 1.0f : 0.76f);
     drawInventoryPistolIcon(
         pistolSlot, uiScale,
         equippedWeapon_ == WeaponType::Pistol ? 1.0f : 0.76f);
+    drawInventorySniperIcon(
+        sniperSlot, uiScale,
+        equippedWeapon_ == WeaponType::Sniper ? 1.0f : 0.76f);
 
     const float keyScale = std::max(1.0f, 2.0f * uiScale);
     const Color keyColor{0.95f, 0.98f, 0.92f};
@@ -1104,6 +1166,8 @@ void MainScene::renderWeaponInventory() const {
                           knifeSlot.y + 9.0f * uiScale, keyScale, keyColor);
     ThreeDUtils::drawText("2", pistolSlot.x + 8.0f * uiScale,
                           pistolSlot.y + 9.0f * uiScale, keyScale, keyColor);
+    ThreeDUtils::drawText("3", sniperSlot.x + 8.0f * uiScale,
+                          sniperSlot.y + 9.0f * uiScale, keyScale, keyColor);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);

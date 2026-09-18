@@ -325,6 +325,17 @@ void ParkingLotScene::applyGuardDamage(std::size_t guardIndex,
     }
 }
 
+void ParkingLotScene::applyGuardSniperDamage(
+    std::size_t guardIndex, const Vec3& hitPosition) {
+    if (guardIndex >= guards_.size()) {
+        return;
+    }
+    guards_[guardIndex].applySniperDamage(hitPosition);
+    if (guards_[2].defeated()) {
+        captainDefeated_ = true;
+    }
+}
+
 void ParkingLotScene::applyGuardKnifeDamage(std::size_t guardIndex,
                                             const Vec3& hitPosition) {
     if (guardIndex >= guards_.size()) {

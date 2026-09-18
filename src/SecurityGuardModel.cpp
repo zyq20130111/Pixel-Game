@@ -543,6 +543,19 @@ void SecurityGuardModel::applyPistolDamage(const Vec3& hitPosition) {
     }
 }
 
+void SecurityGuardModel::applySniperDamage(const Vec3& hitPosition) {
+    if (!alive_) {
+        return;
+    }
+
+    health_ =
+        std::max(0, health_ - sniperDamageForZone(hitZoneForPoint(hitPosition)));
+    if (health_ <= 0) {
+        alive_ = false;
+        deathTimer_ = 0.0f;
+    }
+}
+
 void SecurityGuardModel::applyKnifeDamage(const Vec3& hitPosition) {
     if (!alive_) {
         return;
@@ -611,6 +624,18 @@ int SecurityGuardModel::pistolDamageForZone(CharacterHitZone zone) {
             return kPistolHeadDamage;
     }
     return kPistolLegDamage;
+}
+
+int SecurityGuardModel::sniperDamageForZone(CharacterHitZone zone) {
+    switch (zone) {
+        case CharacterHitZone::Legs:
+            return kSniperLegDamage;
+        case CharacterHitZone::Waist:
+            return kSniperWaistDamage;
+        case CharacterHitZone::Head:
+            return kSniperHeadDamage;
+    }
+    return kSniperLegDamage;
 }
 
 int SecurityGuardModel::knifeDamageForZone(CharacterHitZone zone) {
