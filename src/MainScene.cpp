@@ -14,6 +14,13 @@
 #include <memory>
 #include <string>
 
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_NATIVE_INCLUDE_NONE
+#include <GLFW/glfw3native.h>
+#include <imm.h>
+#endif
+
 namespace pixel_world {
 namespace {
 
@@ -109,6 +116,19 @@ bool numberKeyDown(GLFWwindow* window, int mainKey, int keypadKey) {
     return glfwGetKey(window, mainKey) == GLFW_PRESS ||
            glfwGetKey(window, keypadKey) == GLFW_PRESS;
 }
+
+#ifdef _WIN32
+void disableImeForWindow(GLFWwindow* window) {
+    if (window == nullptr) {
+        return;
+    }
+
+    const HWND handle = glfwGetWin32Window(window);
+    if (handle != nullptr) {
+        ImmAssociateContext(handle, nullptr);
+    }
+}
+#endif
 
 struct InventoryIconPoint {
     float x;
@@ -398,6 +418,9 @@ bool MainScene::initialize() {
     }
 
     glfwMakeContextCurrent(window_);
+#ifdef _WIN32
+    disableImeForWindow(window_);
+#endif
     glfwSetFramebufferSizeCallback(window_, ThreeDUtils::framebufferSizeCallback);
     glfwSwapInterval(1);
     ThreeDUtils::configureRendering();

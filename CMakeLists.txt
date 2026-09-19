@@ -58,7 +58,7 @@ else()
 endif()
 
 if (WIN32)
-    target_link_libraries(Pixel-Game PRIVATE gdi32)
+    target_link_libraries(Pixel-Game PRIVATE gdi32 imm32)
     target_compile_definitions(Pixel-Game PRIVATE NOMINMAX)
     set_target_properties(Pixel-Game PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
