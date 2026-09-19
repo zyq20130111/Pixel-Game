@@ -156,6 +156,30 @@ void SniperRifle::drawRifleModel() {
     drawOptic();
 }
 
+void SniperRifleGuardRenderer::render(const GLfloat* weaponMatrix,
+                                      bool showMuzzleFlash) const {
+    glPushMatrix();
+    glMultMatrixf(weaponMatrix);
+    glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
+    glScalef(kPistolScale, kPistolScale, kPistolScale);
+    SniperRifle::drawRifleModel();
+    glPopMatrix();
+
+    if (!showMuzzleFlash) {
+        return;
+    }
+
+    glPushMatrix();
+    glMultMatrixf(weaponMatrix);
+    ThreeDUtils::drawCube({0.0f, 0.08f, 1.53f},
+                          {0.23f, 0.23f, 0.37f},
+                          kMuzzleFlashOuter);
+    ThreeDUtils::drawCube({0.0f, 0.08f, 1.67f},
+                          {0.13f, 0.13f, 0.33f},
+                          kMuzzleFlashCore);
+    glPopMatrix();
+}
+
 bool SniperRifle::update(GLFWwindow* window, const Camera& camera,
                          std::vector<std::unique_ptr<BulletBase>>& bullets,
                          SoundManager& soundManager, bool& previousFireDown,

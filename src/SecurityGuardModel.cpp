@@ -1,5 +1,6 @@
 #include "SecurityGuardModel.h"
 
+#include "SecurityGuardBaton.h"
 #include "SniperRifle.h"
 #include "ThreeDUtils.h"
 #include "game_constants.h"
@@ -532,6 +533,7 @@ void drawBoundPart(const VertexBuffer& buffer, const Bone& bone,
 struct SecurityGuardModel::Impl {
     Impl() : unitCube(), bones{} {
         unitCube.addUnitCube();
+        weaponRenderer = std::make_unique<SecurityGuardBaton>();
         bones[kRootBone] = {-1, {}, {}, identityMatrix()};
         bones[kTorsoBone] = {kRootBone, {}, {}, identityMatrix()};
         bones[kHeadBone] = {kTorsoBone, {}, {}, identityMatrix()};
@@ -551,6 +553,14 @@ struct SecurityGuardModel::Impl {
             kRightLowerArmBone, {}, {}, identityMatrix()};
         updateSkeleton(SecurityGuardWeapon::Baton, SecurityAnimation::Stand,
                        0.0f);
+    }
+
+    void setWeaponRenderer(SecurityGuardWeapon weapon) {
+        if (weapon == SecurityGuardWeapon::Sniper) {
+            weaponRenderer = std::make_unique<SniperRifleGuardRenderer>();
+        } else {
+            weaponRenderer = std::make_unique<SecurityGuardBaton>();
+        }
     }
 
     void updateSkeleton(SecurityGuardWeapon weapon,
@@ -579,6 +589,7 @@ struct SecurityGuardModel::Impl {
 
     VertexBuffer unitCube;
     std::array<Bone, kBoneCount> bones;
+    std::unique_ptr<SecurityGuardWeaponRenderer> weaponRenderer;
 };
 
 SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
@@ -604,6 +615,7 @@ SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
       attackCooldown_(0.0f),
       attackHit_(false),
       impl_(std::make_unique<Impl>()) {
+    impl_->setWeaponRenderer(weapon_);
     setDifficulty(difficulty_);
     reset();
 }
@@ -895,6 +907,15 @@ void SecurityGuardModel::render() const {
         glRotatef(-78.0f * deathProgress, 1.0f, 0.0f, 0.0f);
     }
 
+    renderHumanModel(uniform, uniformLight, uniformDark);
+    renderWeaponModel(attackActive, attackTimer_);
+
+    glPopMatrix();
+}
+
+void SecurityGuardModel::renderHumanModel(
+    const Color& uniform, const Color& uniformLight,
+    const Color& uniformDark) const {
     const Bone& torso = impl_->bones[kTorsoBone];
     const Bone& head = impl_->bones[kHeadBone];
     const Bone& leftUpperArm = impl_->bones[kLeftUpperArmBone];
@@ -905,7 +926,6 @@ void SecurityGuardModel::render() const {
     const Bone& leftLowerLeg = impl_->bones[kLeftLowerLegBone];
     const Bone& rightUpperLeg = impl_->bones[kRightUpperLegBone];
     const Bone& rightLowerLeg = impl_->bones[kRightLowerLegBone];
-    const Bone& weaponBone = impl_->bones[kWeaponBone];
 
     drawBoundPart(impl_->unitCube, torso, {0.0f, -0.16f, 0.0f},
                   {1.02f, 1.04f, 0.62f}, uniform);
@@ -956,35 +976,20 @@ void SecurityGuardModel::render() const {
                   {0.22f, 0.06f, 0.05f}, kPoliceMouth);
 
     if (weapon_ == SecurityGuardWeapon::Sniper) {
-        glPushMatrix();
-        glMultMatrixf(impl_->bones[kWeaponBone].worldMatrix.values);
-        glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
-        glScalef(kPistolScale, kPistolScale, kPistolScale);
-        SniperRifle::drawRifleModel();
-        glPopMatrix();
-
-        if (attackActive && attackTimer_ >= kGuardAttackHitStart &&
-            attackTimer_ <= kGuardAttackHitStart + 0.12f) {
-            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.08f, 1.53f},
-                          {0.23f, 0.23f, 0.37f}, kMuzzleFlashOuter);
-            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.08f, 1.67f},
-                          {0.13f, 0.13f, 0.33f}, kMuzzleFlashCore);
-        }
-    } else {
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.05f, 0.0f},
-                      {0.13f, 0.70f, 0.13f}, kPoliceBaton);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.42f, 0.0f},
-                      {0.17f, 0.16f, 0.17f}, kPoliceBatonHighlight);
-    }
-
-    if (weapon_ == SecurityGuardWeapon::Sniper) {
         drawBoundPart(impl_->unitCube, leftLowerArm, {0.0f, -0.50f, 0.02f},
                       {0.22f, 0.16f, 0.22f}, kPoliceShoe);
         drawBoundPart(impl_->unitCube, rightLowerArm, {0.0f, -0.50f, 0.02f},
                       {0.22f, 0.16f, 0.22f}, kPoliceShoe);
     }
+}
 
-    glPopMatrix();
+void SecurityGuardModel::renderWeaponModel(bool attackActive,
+                                           float attackTimer) const {
+    const bool showMuzzleFlash =
+        attackActive && attackTimer >= kGuardAttackHitStart &&
+        attackTimer <= kGuardAttackHitStart + 0.12f;
+    impl_->weaponRenderer->render(
+        impl_->bones[kWeaponBone].worldMatrix.values, showMuzzleFlash);
 }
 
 void SecurityGuardModel::renderHealthBar() const {
@@ -1026,6 +1031,7 @@ void SecurityGuardModel::setRole(SecurityGuardRole role) {
     role_ = role;
     weapon_ = role == SecurityGuardRole::Captain ? SecurityGuardWeapon::Sniper
                                                   : SecurityGuardWeapon::Baton;
+    impl_->setWeaponRenderer(weapon_);
     maxHealth_ = maxHealthForDifficulty(difficulty_);
     health_ = maxHealth_;
 }
@@ -1038,6 +1044,7 @@ void SecurityGuardModel::setDifficulty(Difficulty difficulty) {
 
 void SecurityGuardModel::setWeapon(SecurityGuardWeapon weapon) {
     weapon_ = weapon;
+    impl_->setWeaponRenderer(weapon_);
 }
 
 void SecurityGuardModel::setPosition(const Vec3& position) {

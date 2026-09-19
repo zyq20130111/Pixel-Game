@@ -28,6 +28,7 @@ add_executable(
     src/SoundManager.cpp
     src/miniaudio.cpp
     src/SecurityGuardModel.cpp
+    src/SecurityGuardBaton.cpp
     src/ParkingLotScene.cpp
     src/PistolBullet.cpp
     src/SniperBullet.cpp

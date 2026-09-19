@@ -90,6 +90,9 @@ private:
     void beginReturning();
     bool moveTo(const Vec3& target, float maxDistance,
                 const MovementCollisionTest& collisionTest);
+    void renderHumanModel(const Color& uniform, const Color& uniformLight,
+                          const Color& uniformDark) const;
+    void renderWeaponModel(bool attackActive, float attackTimer) const;
 
     struct Impl;
 
