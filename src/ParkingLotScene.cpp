@@ -147,7 +147,10 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
             (guardSeesPlayer[index] ||
              (groupAlerted_ && !guard.returning()));
         const bool weaponCanHitPlayer =
-            guard.alive() && canGuardHitPlayer(guard, playerPosition);
+            guard.alive() &&
+            (guard.weapon() == SecurityGuardWeapon::Sniper
+                 ? guardSeesPlayer[index]
+                 : canGuardHitPlayer(guard, playerPosition));
         const Vec3 currentGuardPosition = guard.position();
         playerDamage += guard.update(
             dt, playerPosition, playerDetected, weaponCanHitPlayer,

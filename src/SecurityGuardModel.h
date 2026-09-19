@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace pixel_world {
@@ -16,7 +17,13 @@ enum class SecurityGuardState {
     Patrol,
     Chasing,
     Attacking,
+    Aiming,
     Returning,
+};
+
+enum class SecurityGuardWeapon {
+    Baton,
+    Sniper,
 };
 
 class SecurityGuardModel final {
@@ -25,6 +32,7 @@ public:
 
     explicit SecurityGuardModel(
         SecurityGuardRole role = SecurityGuardRole::Guard);
+    ~SecurityGuardModel();
 
     void reset();
     void update(float dt);
@@ -36,6 +44,7 @@ public:
 
     void setRole(SecurityGuardRole role);
     void setDifficulty(Difficulty difficulty);
+    void setWeapon(SecurityGuardWeapon weapon);
     void setPosition(const Vec3& position);
     void setPatrolling(bool patrolling);
     void setPatrolWaypoints(const std::vector<Vec3>& waypoints);
@@ -44,6 +53,7 @@ public:
     bool alive() const;
     bool defeated() const;
     bool isCaptain() const;
+    SecurityGuardWeapon weapon() const;
     bool playerDetected() const;
     bool attacking() const;
     bool returning() const;
@@ -68,16 +78,23 @@ private:
     static int knifeDamageForZone(CharacterHitZone zone);
     int maxHealthForDifficulty(Difficulty difficulty) const;
     int batonDamageForDifficulty(Difficulty difficulty) const;
+    int captainSniperDamageForDifficulty(Difficulty difficulty) const;
     float chaseSpeedForDifficulty(Difficulty difficulty) const;
     float attackLungeSpeedForDifficulty(Difficulty difficulty) const;
     float attackLungeSpeedAtProgress(float progress) const;
+    int updateCaptain(float dt, const Vec3& playerPosition,
+                     bool playerDetected, bool weaponCanHitPlayer,
+                     const MovementCollisionTest& collisionTest);
     void updatePatrol(float dt, const MovementCollisionTest& collisionTest);
     bool updateReturning(float dt, const MovementCollisionTest& collisionTest);
     void beginReturning();
     bool moveTo(const Vec3& target, float maxDistance,
                 const MovementCollisionTest& collisionTest);
 
+    struct Impl;
+
     SecurityGuardRole role_;
+    SecurityGuardWeapon weapon_;
     Difficulty difficulty_;
     Vec3 position_;
     Vec3 homePosition_;
@@ -96,6 +113,7 @@ private:
     float attackTimer_;
     float attackCooldown_;
     bool attackHit_;
+    std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace pixel_world
