@@ -32,6 +32,13 @@ constexpr float kGuardAlertDuration = 3.5f;
 constexpr float kGuardAttackCooldown = 0.62f;
 constexpr float kCaptainSniperCooldown = 1.25f;
 constexpr float kGuardMaxChaseDistance = 17.0f;
+constexpr float kSniperUpperArmLength = 0.60f;
+constexpr float kSniperLowerArmLength = 0.56f;
+constexpr float kSniperShoulderForward = 0.08f;
+constexpr float kSniperFrontGripLocalY = -0.06f;
+constexpr float kSniperFrontGripLocalZ = 0.38f;
+constexpr float kSniperRearGripLocalY = -0.08f;
+constexpr float kSniperRearGripLocalZ = 0.10f;
 
 float smoothStep01(float value) {
     const float t = std::clamp(value, 0.0f, 1.0f);
@@ -138,6 +145,31 @@ Vec3 transformPoint(const Matrix4& matrix, const Vec3& point) {
         matrix.values[2] * point.x + matrix.values[6] * point.y +
             matrix.values[10] * point.z + matrix.values[14],
     };
+}
+
+Matrix4 transposeMatrix(const Matrix4& matrix) {
+    Matrix4 result{};
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            result.values[column * 4 + row] = matrix.values[row * 4 + column];
+        }
+    }
+    return result;
+}
+
+Vec3 rotationAligningDown(const Vec3& direction) {
+    const float length = ThreeDUtils::length(direction);
+    if (length < 0.0001f) {
+        return {};
+    }
+
+    const float horizontal =
+        std::sqrt(direction.x * direction.x + direction.z * direction.z);
+    const float rotationX =
+        std::atan2(-horizontal, -direction.y) * 180.0f / constants::kPi;
+    const float rotationY =
+        std::atan2(direction.x, direction.z) * 180.0f / constants::kPi;
+    return {rotationX, rotationY, 0.0f};
 }
 
 class VertexBuffer {
@@ -274,6 +306,82 @@ Pose makeBasePose() {
     return pose;
 }
 
+void applySniperArmPose(Pose& pose, BoneId upperBone, BoneId lowerBone,
+                        const Vec3& shoulder, const Vec3& target,
+                        float sideSign) {
+    constexpr float kMaxReach =
+        kSniperUpperArmLength + kSniperLowerArmLength - 0.002f;
+
+    Vec3 toTarget = target - shoulder;
+    float distance = ThreeDUtils::length(toTarget);
+    if (distance > kMaxReach) {
+        toTarget = ThreeDUtils::normalize(toTarget) * kMaxReach;
+        distance = kMaxReach;
+    }
+
+    const Vec3 handTarget = shoulder + toTarget;
+    const Vec3 axis = distance < 0.0001f
+                          ? Vec3{0.0f, 0.0f, 1.0f}
+                          : ThreeDUtils::normalize(toTarget);
+    const Vec3 worldUp{0.0f, 1.0f, 0.0f};
+
+    Vec3 planeNormal = ThreeDUtils::cross(axis, worldUp);
+    if (ThreeDUtils::length(planeNormal) < 0.0001f) {
+        planeNormal = {1.0f, 0.0f, 0.0f};
+    }
+    planeNormal = ThreeDUtils::normalize(planeNormal) * sideSign;
+
+    Vec3 bendDirection = ThreeDUtils::cross(planeNormal, axis);
+    if (bendDirection.y > 0.0f) {
+        bendDirection = bendDirection * -1.0f;
+        planeNormal = planeNormal * -1.0f;
+    }
+
+    const float midDistance =
+        (kSniperUpperArmLength * kSniperUpperArmLength -
+         kSniperLowerArmLength * kSniperLowerArmLength +
+         distance * distance) /
+        (2.0f * distance);
+    const float heightSquared =
+        kSniperUpperArmLength * kSniperUpperArmLength -
+        midDistance * midDistance;
+    const float height =
+        std::sqrt(std::max(0.0f, heightSquared));
+    const Vec3 elbow = shoulder + axis * midDistance + bendDirection * height;
+
+    const Vec3 upperDirection = ThreeDUtils::normalize(elbow - shoulder);
+    const Vec3 lowerDirection = ThreeDUtils::normalize(handTarget - elbow);
+    const Vec3 upperRotation = rotationAligningDown(upperDirection);
+
+    const Matrix4 upperRotationMatrix = boneLocalMatrix({}, upperRotation);
+    const Vec3 lowerDirectionInUpper =
+        transformPoint(transposeMatrix(upperRotationMatrix), lowerDirection);
+    const Vec3 lowerRotation = rotationAligningDown(lowerDirectionInUpper);
+
+    setPoseBone(pose, upperBone, shoulder, upperRotation);
+    setPoseBone(pose, lowerBone,
+                {0.0f, -kSniperUpperArmLength, 0.0f}, lowerRotation);
+}
+
+void applySniperRifleArms(Pose& pose, const Vec3& weaponPosition,
+                          const Vec3& weaponRotationDegrees) {
+    const Matrix4 weaponMatrix =
+        boneLocalMatrix(weaponPosition, weaponRotationDegrees);
+    const Vec3 leftHandTarget =
+        transformPoint(weaponMatrix, {0.0f, kSniperFrontGripLocalY,
+                                     kSniperFrontGripLocalZ});
+    const Vec3 rightHandTarget =
+        transformPoint(weaponMatrix, {0.0f, kSniperRearGripLocalY,
+                                     kSniperRearGripLocalZ});
+    const Vec3 leftShoulder{-0.62f, 0.30f, kSniperShoulderForward};
+    const Vec3 rightShoulder{0.62f, 0.30f, kSniperShoulderForward};
+
+    applySniperArmPose(pose, kLeftUpperArmBone, kLeftLowerArmBone,
+                       leftShoulder, leftHandTarget, 1.0f);
+    applySniperArmPose(pose, kRightUpperArmBone, kRightLowerArmBone,
+                       rightShoulder, rightHandTarget, -1.0f);
+}
+
 void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                       SecurityAnimation animation, float phase) {
     pose = makeBasePose();
@@ -296,15 +404,9 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                 setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
                             {0.0f, 0.0f, -15.0f});
             } else {
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-55.0f, 0.0f, 25.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-35.0f, 0.0f, 10.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-50.0f, 0.0f, -25.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-30.0f, 0.0f, -10.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, 0.25f, 0.35f}, {});
+                const Vec3 weaponPosition{0.0f, 0.25f, 0.35f};
+                setPoseBone(pose, kWeaponBone, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {});
             }
             break;
         }
@@ -339,18 +441,11 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                 setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
                             {0.0f, 0.0f, -15.0f + gait * 18.0f});
             } else {
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-52.0f + gait * 5.0f, 0.0f, 25.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-32.0f, 0.0f, 10.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-48.0f - gait * 5.0f, 0.0f, -25.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-28.0f, 0.0f, -10.0f});
-                setPoseBone(pose, kWeaponBone,
-                            {0.0f, 0.25f + gait * 0.015f,
-                             0.35f - gait * 0.02f},
-                            {});
+                const Vec3 weaponPosition{0.0f,
+                                          0.25f + gait * 0.015f,
+                                          0.35f - gait * 0.02f};
+                setPoseBone(pose, kWeaponBone, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {});
             }
             break;
         }
@@ -377,15 +472,9 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                             {-4.0f + sway, 0.0f, 0.0f});
                 setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
                             {2.0f - sway, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-88.0f, 0.0f, 18.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-55.0f, 0.0f, 10.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-84.0f, 0.0f, -18.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-48.0f, 0.0f, -10.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, 0.90f, 0.45f}, {});
+                const Vec3 weaponPosition{0.0f, 0.80f, 0.40f};
+                setPoseBone(pose, kWeaponBone, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {});
             }
             break;
         }
@@ -411,16 +500,11 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                             {-1.0f - 2.5f * recoil, 0.0f, 0.0f});
                 setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
                             {2.0f + 3.0f * recoil, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-88.0f - 5.0f * recoil, 0.0f, 18.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-55.0f - 4.0f * recoil, 0.0f, 10.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-84.0f - 6.0f * recoil, 0.0f, -18.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-48.0f - 4.0f * recoil, 0.0f, -10.0f});
-                setPoseBone(pose, kWeaponBone,
-                            {0.0f, 0.90f, 0.45f - 0.08f * recoil}, {});
+                const Vec3 weaponPosition{0.0f,
+                                          0.80f + 0.03f * recoil,
+                                          0.40f - 0.06f * recoil};
+                setPoseBone(pose, kWeaponBone, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {});
             }
             break;
         }
@@ -877,10 +961,6 @@ void SecurityGuardModel::render() const {
                       {0.08f, 0.18f, 0.10f}, kSniperMetalDark);
         drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 0.95f},
                       {0.09f, 0.09f, 0.12f}, kSniperBarrelDark);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.00f, 0.62f},
-                      {0.18f, 0.15f, 0.20f}, kPoliceSkin);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.08f, 0.10f},
-                      {0.16f, 0.18f, 0.20f}, kPoliceSkin);
         if (attackActive && attackTimer_ >= kGuardAttackHitStart &&
             attackTimer_ <= kGuardAttackHitStart + 0.12f) {
             drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 1.04f},
@@ -893,6 +973,13 @@ void SecurityGuardModel::render() const {
                       {0.13f, 0.70f, 0.13f}, kPoliceBaton);
         drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.42f, 0.0f},
                       {0.17f, 0.16f, 0.17f}, kPoliceBatonHighlight);
+    }
+
+    if (weapon_ == SecurityGuardWeapon::Sniper) {
+        drawBoundPart(impl_->unitCube, leftLowerArm, {0.0f, -0.50f, 0.02f},
+                      {0.22f, 0.16f, 0.22f}, kPoliceShoe);
+        drawBoundPart(impl_->unitCube, rightLowerArm, {0.0f, -0.50f, 0.02f},
+                      {0.22f, 0.16f, 0.22f}, kPoliceShoe);
     }
 
     glPopMatrix();
