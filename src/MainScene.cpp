@@ -1115,9 +1115,7 @@ void MainScene::renderWeaponInventory() const {
     const float slotSize = std::max(58.0f, 78.0f * uiScale);
     const float gap = std::max(6.0f, 10.0f * uiScale);
     const float margin = std::max(18.0f, 26.0f * uiScale);
-    const float totalWidth = slotSize * 3.0f + gap * 2.0f;
-    const float startX =
-        static_cast<float>(framebufferWidth_) - margin - totalWidth;
+    const float startX = margin;
     const float startY =
         static_cast<float>(framebufferHeight_) - margin - slotSize;
     const Rect knifeSlot{startX, startY, slotSize, slotSize};
