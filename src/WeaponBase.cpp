@@ -25,4 +25,16 @@ void WeaponBase::renderThirdPerson(const GLfloat* weaponMatrix,
     (void)showMuzzleFlash;
 }
 
+void WeaponBase::applyThirdPersonPose(Pose& pose,
+                                      SecurityGuardAnimation animation,
+                                      float phase) const {
+    (void)pose;
+    (void)animation;
+    (void)phase;
+}
+
+int WeaponBase::thirdPersonWeaponBoneParent() const {
+    return kRightLowerArmBone;
+}
+
 }  // namespace pixel_world

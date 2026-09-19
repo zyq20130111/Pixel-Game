@@ -23,6 +23,10 @@ public:
                            float attackTimer) override;
     void renderThirdPerson(const GLfloat* weaponMatrix,
                            bool showMuzzleFlash) const override;
+    void applyThirdPersonPose(Pose& pose,
+                              SecurityGuardAnimation animation,
+                              float phase) const override;
+    int thirdPersonWeaponBoneParent() const override;
     static void drawRifleModel();
 
 private:

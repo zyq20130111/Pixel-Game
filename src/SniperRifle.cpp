@@ -143,6 +143,215 @@ void drawOptic() {
 
 }  // namespace
 
+namespace {
+
+constexpr float kSniperUpperArmLength = 0.60f;
+constexpr float kSniperLowerArmLength = 0.56f;
+constexpr float kSniperShoulderForward = 0.22f;
+constexpr float kSniperAimShoulderForward = 0.30f;
+constexpr float kSniperFrontGripLocalY = -0.02f;
+constexpr float kSniperFrontGripLocalZ = 0.46f;
+constexpr float kSniperRearGripLocalY = -0.18f;
+constexpr float kSniperRearGripLocalZ = 0.08f;
+
+struct Matrix4 {
+    GLfloat values[16];
+};
+
+Matrix4 identityMatrix() {
+    return Matrix4{{1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 1.0f}};
+}
+
+Matrix4 multiply(const Matrix4& left, const Matrix4& right) {
+    Matrix4 result{};
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            float value = 0.0f;
+            for (int inner = 0; inner < 4; ++inner) {
+                value += left.values[inner * 4 + row] *
+                         right.values[column * 4 + inner];
+            }
+            result.values[column * 4 + row] = value;
+        }
+    }
+    return result;
+}
+
+Matrix4 translationMatrix(const Vec3& position) {
+    Matrix4 result = identityMatrix();
+    result.values[12] = position.x;
+    result.values[13] = position.y;
+    result.values[14] = position.z;
+    return result;
+}
+
+Matrix4 rotationXMatrix(float angleDegrees) {
+    const float angleRadians = angleDegrees * constants::kPi / 180.0f;
+    const float sine = std::sin(angleRadians);
+    const float cosine = std::cos(angleRadians);
+    Matrix4 result = identityMatrix();
+    result.values[5] = cosine;
+    result.values[6] = sine;
+    result.values[9] = -sine;
+    result.values[10] = cosine;
+    return result;
+}
+
+Matrix4 rotationYMatrix(float angleDegrees) {
+    const float angleRadians = angleDegrees * constants::kPi / 180.0f;
+    const float sine = std::sin(angleRadians);
+    const float cosine = std::cos(angleRadians);
+    Matrix4 result = identityMatrix();
+    result.values[0] = cosine;
+    result.values[2] = -sine;
+    result.values[8] = sine;
+    result.values[10] = cosine;
+    return result;
+}
+
+Matrix4 rotationZMatrix(float angleDegrees) {
+    const float angleRadians = angleDegrees * constants::kPi / 180.0f;
+    const float sine = std::sin(angleRadians);
+    const float cosine = std::cos(angleRadians);
+    Matrix4 result = identityMatrix();
+    result.values[0] = cosine;
+    result.values[1] = sine;
+    result.values[4] = -sine;
+    result.values[5] = cosine;
+    return result;
+}
+
+Matrix4 boneLocalMatrix(const Vec3& position, const Vec3& rotationDegrees) {
+    Matrix4 result = translationMatrix(position);
+    result = multiply(result, rotationZMatrix(rotationDegrees.z));
+    result = multiply(result, rotationYMatrix(rotationDegrees.y));
+    result = multiply(result, rotationXMatrix(rotationDegrees.x));
+    return result;
+}
+
+Vec3 transformPoint(const Matrix4& matrix, const Vec3& point) {
+    return {
+        matrix.values[0] * point.x + matrix.values[4] * point.y +
+            matrix.values[8] * point.z + matrix.values[12],
+        matrix.values[1] * point.x + matrix.values[5] * point.y +
+            matrix.values[9] * point.z + matrix.values[13],
+        matrix.values[2] * point.x + matrix.values[6] * point.y +
+            matrix.values[10] * point.z + matrix.values[14],
+    };
+}
+
+Matrix4 transposeMatrix(const Matrix4& matrix) {
+    Matrix4 result{};
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            result.values[column * 4 + row] =
+                matrix.values[row * 4 + column];
+        }
+    }
+    return result;
+}
+
+Vec3 rotationAligningDown(const Vec3& direction) {
+    const float length = ThreeDUtils::length(direction);
+    if (length < 0.0001f) {
+        return {};
+    }
+
+    const float horizontal =
+        std::sqrt(direction.x * direction.x + direction.z * direction.z);
+    const float rotationX =
+        std::atan2(-horizontal, -direction.y) * 180.0f / constants::kPi;
+    const float rotationY =
+        std::atan2(direction.x, direction.z) * 180.0f / constants::kPi;
+    return {rotationX, rotationY, 0.0f};
+}
+
+void setSniperPoseBone(Pose& pose, BoneId bone, const Vec3& position,
+                       const Vec3& rotationDegrees) {
+    pose[bone] = {position, rotationDegrees};
+}
+
+void applySniperArmPose(Pose& pose, BoneId upperBone, BoneId lowerBone,
+                        const Vec3& shoulder, const Vec3& target,
+                        float sideSign) {
+    constexpr float kMaxReach =
+        kSniperUpperArmLength + kSniperLowerArmLength - 0.002f;
+
+    Vec3 toTarget = target - shoulder;
+    float distance = ThreeDUtils::length(toTarget);
+    if (distance > kMaxReach) {
+        toTarget = ThreeDUtils::normalize(toTarget) * kMaxReach;
+        distance = kMaxReach;
+    }
+
+    const Vec3 handTarget = shoulder + toTarget;
+    const Vec3 axis = distance < 0.0001f
+                          ? Vec3{0.0f, 0.0f, 1.0f}
+                          : ThreeDUtils::normalize(toTarget);
+    const Vec3 worldUp{0.0f, 1.0f, 0.0f};
+
+    Vec3 planeNormal = ThreeDUtils::cross(axis, worldUp);
+    if (ThreeDUtils::length(planeNormal) < 0.0001f) {
+        planeNormal = {1.0f, 0.0f, 0.0f};
+    }
+    planeNormal = ThreeDUtils::normalize(planeNormal) * sideSign;
+
+    Vec3 bendDirection = ThreeDUtils::cross(planeNormal, axis);
+    if (bendDirection.y > 0.0f) {
+        bendDirection = bendDirection * -1.0f;
+        planeNormal = planeNormal * -1.0f;
+    }
+
+    const float midDistance =
+        (kSniperUpperArmLength * kSniperUpperArmLength -
+         kSniperLowerArmLength * kSniperLowerArmLength +
+         distance * distance) /
+        (2.0f * distance);
+    const float heightSquared =
+        kSniperUpperArmLength * kSniperUpperArmLength -
+        midDistance * midDistance;
+    const float height = std::sqrt(std::max(0.0f, heightSquared));
+    const Vec3 elbow = shoulder + axis * midDistance + bendDirection * height;
+
+    const Vec3 upperDirection = ThreeDUtils::normalize(elbow - shoulder);
+    const Vec3 lowerDirection = ThreeDUtils::normalize(handTarget - elbow);
+    const Vec3 upperRotation = rotationAligningDown(upperDirection);
+
+    const Matrix4 upperRotationMatrix = boneLocalMatrix({}, upperRotation);
+    const Vec3 lowerDirectionInUpper =
+        transformPoint(transposeMatrix(upperRotationMatrix), lowerDirection);
+    const Vec3 lowerRotation = rotationAligningDown(lowerDirectionInUpper);
+
+    setSniperPoseBone(pose, upperBone, shoulder, upperRotation);
+    setSniperPoseBone(pose, lowerBone,
+                      {0.0f, -kSniperUpperArmLength, 0.0f}, lowerRotation);
+}
+
+void applySniperRifleArms(Pose& pose, const Vec3& weaponPosition,
+                          const Vec3& weaponRotationDegrees,
+                          float shoulderForward) {
+    const Matrix4 weaponMatrix =
+        boneLocalMatrix(weaponPosition, weaponRotationDegrees);
+    const Vec3 leftHandTarget =
+        transformPoint(weaponMatrix, {0.0f, kSniperFrontGripLocalY,
+                                     kSniperFrontGripLocalZ});
+    const Vec3 rightHandTarget =
+        transformPoint(weaponMatrix, {0.0f, kSniperRearGripLocalY,
+                                     kSniperRearGripLocalZ});
+    const Vec3 leftShoulder{-0.62f, 0.30f, shoulderForward};
+    const Vec3 rightShoulder{0.62f, 0.30f, shoulderForward};
+
+    applySniperArmPose(pose, kLeftUpperArmBone, kLeftLowerArmBone,
+                       leftShoulder, leftHandTarget, 1.0f);
+    applySniperArmPose(pose, kRightUpperArmBone, kRightLowerArmBone,
+                       rightShoulder, rightHandTarget, -1.0f);
+}
+
+}  // namespace
+
 SniperRifle::SniperRifle() : muzzleFlashTimer_(0.0f) {}
 
 void SniperRifle::reset() {
@@ -185,6 +394,63 @@ void SniperRifle::renderThirdPerson(const GLfloat* weaponMatrix,
                           {0.13f, 0.13f, 0.33f},
                           kMuzzleFlashCore);
     glPopMatrix();
+}
+
+void SniperRifle::applyThirdPersonPose(
+    Pose& pose, SecurityGuardAnimation animation, float phase) const {
+    switch (animation) {
+        case SecurityGuardAnimation::Stand: {
+            const Vec3 weaponPosition{0.0f, 0.25f, 0.50f};
+            setSniperPoseBone(pose, kWeaponBone, weaponPosition, {});
+            applySniperRifleArms(pose, weaponPosition, {},
+                                 kSniperShoulderForward);
+            break;
+        }
+
+        case SecurityGuardAnimation::Walk:
+        case SecurityGuardAnimation::Run: {
+            const float gait = std::sin(phase);
+            const Vec3 weaponPosition{0.0f,
+                                      0.25f + gait * 0.015f,
+                                      0.50f - gait * 0.02f};
+            setSniperPoseBone(pose, kWeaponBone, weaponPosition, {});
+            applySniperRifleArms(pose, weaponPosition, {},
+                                 kSniperShoulderForward);
+            break;
+        }
+
+        case SecurityGuardAnimation::Aim: {
+            const float sway = std::sin(phase * 1.7f) * 0.8f;
+            setSniperPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
+                              {-4.0f + sway, 0.0f, 0.0f});
+            setSniperPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
+                              {2.0f - sway, 0.0f, 0.0f});
+            const Vec3 weaponPosition{0.0f, 0.74f, 0.70f};
+            setSniperPoseBone(pose, kWeaponBone, weaponPosition, {});
+            applySniperRifleArms(pose, weaponPosition, {},
+                                 kSniperAimShoulderForward);
+            break;
+        }
+
+        case SecurityGuardAnimation::Fire: {
+            const float recoil = std::sin(phase * constants::kPi);
+            setSniperPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
+                              {-1.0f - 2.5f * recoil, 0.0f, 0.0f});
+            setSniperPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
+                              {2.0f + 3.0f * recoil, 0.0f, 0.0f});
+            const Vec3 weaponPosition{0.0f,
+                                      0.74f + 0.03f * recoil,
+                                      0.70f - 0.06f * recoil};
+            setSniperPoseBone(pose, kWeaponBone, weaponPosition, {});
+            applySniperRifleArms(pose, weaponPosition, {},
+                                 kSniperAimShoulderForward);
+            break;
+        }
+    }
+}
+
+int SniperRifle::thirdPersonWeaponBoneParent() const {
+    return kTorsoBone;
 }
 
 bool SniperRifle::update(GLFWwindow* window, const Camera& camera,

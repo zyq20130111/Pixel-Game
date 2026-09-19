@@ -1,6 +1,7 @@
 #include "SecurityGuardModel.h"
 
 #include "SecurityGuardBaton.h"
+#include "SecurityGuardPose.h"
 #include "SniperRifle.h"
 #include "ThreeDUtils.h"
 #include "WeaponBase.h"
@@ -35,14 +36,6 @@ constexpr float kGuardAlertDuration = 3.5f;
 constexpr float kGuardAttackCooldown = 0.62f;
 constexpr float kCaptainSniperCooldown = 1.25f;
 constexpr float kGuardMaxChaseDistance = 17.0f;
-constexpr float kSniperUpperArmLength = 0.60f;
-constexpr float kSniperLowerArmLength = 0.56f;
-constexpr float kSniperShoulderForward = 0.22f;
-constexpr float kSniperAimShoulderForward = 0.30f;
-constexpr float kSniperFrontGripLocalY = -0.02f;
-constexpr float kSniperFrontGripLocalZ = 0.46f;
-constexpr float kSniperRearGripLocalY = -0.18f;
-constexpr float kSniperRearGripLocalZ = 0.08f;
 
 float smoothStep01(float value) {
     const float t = std::clamp(value, 0.0f, 1.0f);
@@ -161,21 +154,6 @@ Matrix4 transposeMatrix(const Matrix4& matrix) {
     return result;
 }
 
-Vec3 rotationAligningDown(const Vec3& direction) {
-    const float length = ThreeDUtils::length(direction);
-    if (length < 0.0001f) {
-        return {};
-    }
-
-    const float horizontal =
-        std::sqrt(direction.x * direction.x + direction.z * direction.z);
-    const float rotationX =
-        std::atan2(-horizontal, -direction.y) * 180.0f / constants::kPi;
-    const float rotationY =
-        std::atan2(direction.x, direction.z) * 180.0f / constants::kPi;
-    return {rotationX, rotationY, 0.0f};
-}
-
 class VertexBuffer {
 public:
     void addTriangle(const Vec3& a, const Vec3& b, const Vec3& c,
@@ -250,42 +228,11 @@ private:
 
 constexpr float kTau = constants::kPi * 2.0f;
 
-enum BoneId : std::size_t {
-    kRootBone = 0,
-    kTorsoBone,
-    kHeadBone,
-    kLeftUpperArmBone,
-    kLeftLowerArmBone,
-    kRightUpperArmBone,
-    kRightLowerArmBone,
-    kLeftUpperLegBone,
-    kLeftLowerLegBone,
-    kRightUpperLegBone,
-    kRightLowerLegBone,
-    kWeaponBone,
-    kBoneCount,
-};
-
 struct Bone {
     int parent;
     Vec3 localPosition;
     Vec3 localRotationDegrees;
     Matrix4 worldMatrix;
-};
-
-struct BonePose {
-    Vec3 position;
-    Vec3 rotationDegrees;
-};
-
-using Pose = std::array<BonePose, kBoneCount>;
-
-enum class SecurityAnimation {
-    Stand,
-    Walk,
-    Run,
-    Aim,
-    Fire,
 };
 
 void setPoseBone(Pose& pose, BoneId bone, const Vec3& position,
@@ -310,124 +257,23 @@ Pose makeBasePose() {
     return pose;
 }
 
-void applySniperArmPose(Pose& pose, BoneId upperBone, BoneId lowerBone,
-                        const Vec3& shoulder, const Vec3& target,
-                        float sideSign) {
-    constexpr float kMaxReach =
-        kSniperUpperArmLength + kSniperLowerArmLength - 0.002f;
-
-    Vec3 toTarget = target - shoulder;
-    float distance = ThreeDUtils::length(toTarget);
-    if (distance > kMaxReach) {
-        toTarget = ThreeDUtils::normalize(toTarget) * kMaxReach;
-        distance = kMaxReach;
-    }
-
-    const Vec3 handTarget = shoulder + toTarget;
-    const Vec3 axis = distance < 0.0001f
-                          ? Vec3{0.0f, 0.0f, 1.0f}
-                          : ThreeDUtils::normalize(toTarget);
-    const Vec3 worldUp{0.0f, 1.0f, 0.0f};
-
-    Vec3 planeNormal = ThreeDUtils::cross(axis, worldUp);
-    if (ThreeDUtils::length(planeNormal) < 0.0001f) {
-        planeNormal = {1.0f, 0.0f, 0.0f};
-    }
-    planeNormal = ThreeDUtils::normalize(planeNormal) * sideSign;
-
-    Vec3 bendDirection = ThreeDUtils::cross(planeNormal, axis);
-    if (bendDirection.y > 0.0f) {
-        bendDirection = bendDirection * -1.0f;
-        planeNormal = planeNormal * -1.0f;
-    }
-
-    const float midDistance =
-        (kSniperUpperArmLength * kSniperUpperArmLength -
-         kSniperLowerArmLength * kSniperLowerArmLength +
-         distance * distance) /
-        (2.0f * distance);
-    const float heightSquared =
-        kSniperUpperArmLength * kSniperUpperArmLength -
-        midDistance * midDistance;
-    const float height =
-        std::sqrt(std::max(0.0f, heightSquared));
-    const Vec3 elbow = shoulder + axis * midDistance + bendDirection * height;
-
-    const Vec3 upperDirection = ThreeDUtils::normalize(elbow - shoulder);
-    const Vec3 lowerDirection = ThreeDUtils::normalize(handTarget - elbow);
-    const Vec3 upperRotation = rotationAligningDown(upperDirection);
-
-    const Matrix4 upperRotationMatrix = boneLocalMatrix({}, upperRotation);
-    const Vec3 lowerDirectionInUpper =
-        transformPoint(transposeMatrix(upperRotationMatrix), lowerDirection);
-    const Vec3 lowerRotation = rotationAligningDown(lowerDirectionInUpper);
-
-    setPoseBone(pose, upperBone, shoulder, upperRotation);
-    setPoseBone(pose, lowerBone,
-                {0.0f, -kSniperUpperArmLength, 0.0f}, lowerRotation);
-}
-
-void applySniperRifleArms(Pose& pose, const Vec3& weaponPosition,
-                          const Vec3& weaponRotationDegrees,
-                          float shoulderForward) {
-    const Matrix4 weaponMatrix =
-        boneLocalMatrix(weaponPosition, weaponRotationDegrees);
-    const Vec3 leftHandTarget =
-        transformPoint(weaponMatrix, {0.0f, kSniperFrontGripLocalY,
-                                     kSniperFrontGripLocalZ});
-    const Vec3 rightHandTarget =
-        transformPoint(weaponMatrix, {0.0f, kSniperRearGripLocalY,
-                                     kSniperRearGripLocalZ});
-    const Vec3 leftShoulder{-0.62f, 0.30f, shoulderForward};
-    const Vec3 rightShoulder{0.62f, 0.30f, shoulderForward};
-
-    applySniperArmPose(pose, kLeftUpperArmBone, kLeftLowerArmBone,
-                       leftShoulder, leftHandTarget, 1.0f);
-    applySniperArmPose(pose, kRightUpperArmBone, kRightLowerArmBone,
-                       rightShoulder, rightHandTarget, -1.0f);
-}
-
-void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
-                      SecurityAnimation animation, float phase) {
+void makeSecurityPose(Pose& pose, SecurityAnimation animation, float phase) {
     pose = makeBasePose();
-    const bool baton = weapon == SecurityGuardWeapon::Baton;
-    const float gait = std::sin(phase);
 
     switch (animation) {
         case SecurityAnimation::Stand: {
             const float breathe = std::sin(phase * 1.2f) * 0.015f;
             setPoseBone(pose, kTorsoBone, {0.0f, 1.30f + breathe, 0.0f}, {});
-            if (baton) {
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-8.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-12.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-10.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-8.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
-                            {0.0f, 0.0f, -15.0f});
-            } else {
-                const Vec3 weaponPosition{0.0f, 0.25f, 0.50f};
-                setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {},
-                                     kSniperShoulderForward);
-            }
             break;
         }
 
         case SecurityAnimation::Walk:
         case SecurityAnimation::Run: {
-            const float legAmplitude = animation == SecurityAnimation::Walk
-                                           ? 28.0f
-                                           : 44.0f;
-            const float armAmplitude = animation == SecurityAnimation::Walk
-                                           ? 22.0f
-                                           : 52.0f;
-            const float bob = animation == SecurityAnimation::Walk
-                                  ? 0.025f
-                                  : 0.055f;
+            const float legAmplitude =
+                animation == SecurityAnimation::Walk ? 28.0f : 44.0f;
+            const float bob =
+                animation == SecurityAnimation::Walk ? 0.025f : 0.055f;
+            const float gait = std::sin(phase);
             setPoseBone(pose, kRootBone,
                         {0.0f, bob * std::abs(std::sin(phase * 2.0f)), 0.0f},
                         {});
@@ -439,84 +285,12 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                         {12.0f, 0.0f, 0.0f});
             setPoseBone(pose, kRightLowerLegBone, {0.0f, -0.62f, 0.0f},
                         {12.0f, 0.0f, 0.0f});
-            if (baton) {
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-gait * armAmplitude, 0.0f, 0.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {gait * armAmplitude, 0.0f, 0.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
-                            {0.0f, 0.0f, -15.0f + gait * 18.0f});
-            } else {
-                const Vec3 weaponPosition{0.0f,
-                                          0.25f + gait * 0.015f,
-                                          0.50f - gait * 0.02f};
-                setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {},
-                                     kSniperShoulderForward);
-            }
             break;
         }
 
-        case SecurityAnimation::Aim: {
-            if (baton) {
-                setPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
-                            {-5.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
-                            {4.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-28.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-18.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-85.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-40.0f, 0.0f, 0.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.10f},
-                            {0.0f, 0.0f, -30.0f});
-            } else {
-                const float sway = std::sin(phase * 1.7f) * 0.8f;
-                setPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
-                            {-4.0f + sway, 0.0f, 0.0f});
-                setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
-                            {2.0f - sway, 0.0f, 0.0f});
-                const Vec3 weaponPosition{0.0f, 0.74f, 0.70f};
-                setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {},
-                                     kSniperAimShoulderForward);
-            }
+        case SecurityAnimation::Aim:
+        case SecurityAnimation::Fire:
             break;
-        }
-
-        case SecurityAnimation::Fire: {
-            const float recoil = std::sin(phase * constants::kPi);
-            if (baton) {
-                const float swing = std::sin(phase * constants::kPi);
-                setPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
-                            {-8.0f * swing, 0.0f, 0.0f});
-                setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
-                            {6.0f * swing, 0.0f, 0.0f});
-                setPoseBone(pose, kLeftUpperArmBone, {-0.62f, 0.30f, 0.0f},
-                            {-25.0f * swing, 0.0f, 0.0f});
-                setPoseBone(pose, kRightUpperArmBone, {0.62f, 0.30f, 0.0f},
-                            {-10.0f - 95.0f * swing, 0.0f, 0.0f});
-                setPoseBone(pose, kRightLowerArmBone, {0.0f, -0.60f, 0.0f},
-                            {-15.0f - 45.0f * swing, 0.0f, 0.0f});
-                setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
-                            {0.0f, 0.0f, -70.0f * swing});
-            } else {
-                setPoseBone(pose, kTorsoBone, {0.0f, 1.30f, 0.0f},
-                            {-1.0f - 2.5f * recoil, 0.0f, 0.0f});
-                setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
-                            {2.0f + 3.0f * recoil, 0.0f, 0.0f});
-                const Vec3 weaponPosition{0.0f,
-                                          0.74f + 0.03f * recoil,
-                                          0.70f - 0.06f * recoil};
-                setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {},
-                                     kSniperAimShoulderForward);
-            }
-            break;
-        }
     }
 }
 
@@ -552,8 +326,7 @@ struct SecurityGuardModel::Impl {
             kRightUpperLegBone, {}, {}, identityMatrix()};
         bones[kWeaponBone] = {
             kRightLowerArmBone, {}, {}, identityMatrix()};
-        updateSkeleton(SecurityGuardWeapon::Baton, SecurityAnimation::Stand,
-                       0.0f);
+        updateSkeleton(SecurityAnimation::Stand, 0.0f);
     }
 
     void setWeaponInstance(SecurityGuardWeapon weapon) {
@@ -565,17 +338,15 @@ struct SecurityGuardModel::Impl {
         weaponInstance->setViewMode(WeaponViewMode::ThirdPerson);
     }
 
-    void updateSkeleton(SecurityGuardWeapon weapon,
-                        SecurityAnimation animation, float phase) {
+    void updateSkeleton(SecurityAnimation animation, float phase) {
         Pose pose{};
-        makeSecurityPose(pose, weapon, animation, phase);
+        makeSecurityPose(pose, animation, phase);
+        weaponInstance->applyThirdPersonPose(pose, animation, phase);
         for (std::size_t i = 0; i < kBoneCount; ++i) {
             bones[i].localPosition = pose[i].position;
             bones[i].localRotationDegrees = pose[i].rotationDegrees;
         }
-        bones[kWeaponBone].parent = static_cast<int>(
-            weapon == SecurityGuardWeapon::Baton ? kRightLowerArmBone
-                                                  : kTorsoBone);
+        bones[kWeaponBone].parent = weaponInstance->thirdPersonWeaponBoneParent();
         for (std::size_t i = 0; i < kBoneCount; ++i) {
             const Matrix4 local = boneLocalMatrix(
                 bones[i].localPosition, bones[i].localRotationDegrees);
@@ -891,7 +662,7 @@ void SecurityGuardModel::render() const {
     } else if (state_ == SecurityGuardState::Returning || patrolling_) {
         animation = SecurityAnimation::Walk;
     }
-    impl_->updateSkeleton(weapon_, animation, phase);
+    impl_->updateSkeleton(animation, phase);
 
     const Color uniform =
         role_ == SecurityGuardRole::Captain ? Color{0.42f, 0.16f, 0.12f}

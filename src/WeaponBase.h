@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SecurityGuardPose.h"
 #include "platform.h"
 #include "types.h"
 
@@ -41,6 +42,10 @@ public:
                                    float attackTimer);
     virtual void renderThirdPerson(const GLfloat* weaponMatrix,
                                    bool showMuzzleFlash) const;
+    virtual void applyThirdPersonPose(Pose& pose,
+                                      SecurityGuardAnimation animation,
+                                      float phase) const;
+    virtual int thirdPersonWeaponBoneParent() const;
 
 protected:
     WeaponViewMode viewMode_ = WeaponViewMode::FirstPerson;
