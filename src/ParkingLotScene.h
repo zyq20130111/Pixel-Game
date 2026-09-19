@@ -39,6 +39,8 @@ public:
     bool tryCollectAccessCard(const Vec3& playerPosition);
     bool interactWithElevator(const Vec3& playerPosition);
     bool nearElevator(const Vec3& playerPosition) const;
+    void setAiEnabled(bool enabled);
+    bool aiEnabled() const;
 
     Vec3 spawnPosition() const;
     const SecurityGuardModel& guard(std::size_t index) const;
@@ -83,6 +85,7 @@ private:
     float elevatorOpenAmount_;
     bool groupAlerted_;
     float groupAlertTimer_;
+    bool aiEnabled_;
     Vec3 accessCardPosition_;
     Language language_;
     Difficulty difficulty_;

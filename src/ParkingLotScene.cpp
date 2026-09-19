@@ -79,6 +79,7 @@ ParkingLotScene::ParkingLotScene(Language language)
       elevatorOpenAmount_(0.0f),
       groupAlerted_(false),
       groupAlertTimer_(0.0f),
+      aiEnabled_(true),
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
       language_(language),
       difficulty_(Difficulty::Normal),
@@ -95,6 +96,7 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     elevatorOpenAmount_ = 0.0f;
     groupAlerted_ = false;
     groupAlertTimer_ = 0.0f;
+    aiEnabled_ = true;
     accessCardPosition_ = {0.0f, 1.1f, -6.6f};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
@@ -123,6 +125,19 @@ void ParkingLotScene::reset(Difficulty difficulty) {
 
 int ParkingLotScene::update(float dt, const Vec3& playerPosition,
                             bool playerFired) {
+    if (!aiEnabled_) {
+        groupAlertTimer_ = std::max(0.0f, groupAlertTimer_ - dt);
+        groupAlerted_ = groupAlertTimer_ > 0.0f;
+        if (elevatorOpen_) {
+            elevatorOpenAmount_ =
+                std::min(1.0f, elevatorOpenAmount_ + dt * 1.8f);
+            if (elevatorOpenAmount_ >= 1.0f) {
+                levelComplete_ = true;
+            }
+        }
+        return 0;
+    }
+
     std::array<bool, kGuardCount> guardSeesPlayer{};
     bool directThreatDetected = false;
     for (std::size_t index = 0; index < guards_.size(); ++index) {
@@ -172,6 +187,14 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
         }
     }
     return playerDamage;
+}
+
+void ParkingLotScene::setAiEnabled(bool enabled) {
+    aiEnabled_ = enabled;
+}
+
+bool ParkingLotScene::aiEnabled() const {
+    return aiEnabled_;
 }
 
 void ParkingLotScene::render() const {

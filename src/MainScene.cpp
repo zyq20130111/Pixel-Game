@@ -264,6 +264,7 @@ MainScene::MainScene()
       previousProneDown_(false),
       previousInteractDown_(false),
       previousRestartDown_(false),
+      previousAiToggleDown_(false),
       parkingHintTimer_(0.0f),
       playerHealth_(kCharacterMaxHp),
       playerMaxHealth_(kCharacterMaxHp),
@@ -443,6 +444,8 @@ void MainScene::resetGame() {
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
         glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+    previousAiToggleDown_ =
+        glfwGetKey(window_, GLFW_KEY_F1) == GLFW_PRESS;
     previousJumpDown_ =
         glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
     previousCrouchDown_ =
@@ -498,6 +501,12 @@ void MainScene::updateExitPrompt() {
 }
 
 void MainScene::updateGameplay(float dt) {
+    const bool aiToggleDown = glfwGetKey(window_, GLFW_KEY_F1) == GLFW_PRESS;
+    if (aiToggleDown && !previousAiToggleDown_) {
+        parkingLotScene_.setAiEnabled(!parkingLotScene_.aiEnabled());
+    }
+    previousAiToggleDown_ = aiToggleDown;
+
     const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
     const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
     const bool crouchPressed = crouchDown && !previousCrouchDown_;

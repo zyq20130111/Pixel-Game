@@ -34,7 +34,7 @@ constexpr float kCaptainSniperCooldown = 1.25f;
 constexpr float kGuardMaxChaseDistance = 17.0f;
 constexpr float kSniperUpperArmLength = 0.60f;
 constexpr float kSniperLowerArmLength = 0.56f;
-constexpr float kSniperShoulderForward = 0.08f;
+constexpr float kSniperShoulderForward = 0.22f;
 constexpr float kSniperFrontGripLocalY = -0.06f;
 constexpr float kSniperFrontGripLocalZ = 0.38f;
 constexpr float kSniperRearGripLocalY = -0.08f;
@@ -404,7 +404,7 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                 setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
                             {0.0f, 0.0f, -15.0f});
             } else {
-                const Vec3 weaponPosition{0.0f, 0.25f, 0.35f};
+                const Vec3 weaponPosition{0.0f, 0.25f, 0.55f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
                 applySniperRifleArms(pose, weaponPosition, {});
             }
@@ -443,7 +443,7 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
             } else {
                 const Vec3 weaponPosition{0.0f,
                                           0.25f + gait * 0.015f,
-                                          0.35f - gait * 0.02f};
+                                          0.55f - gait * 0.02f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
                 applySniperRifleArms(pose, weaponPosition, {});
             }
@@ -472,7 +472,7 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                             {-4.0f + sway, 0.0f, 0.0f});
                 setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
                             {2.0f - sway, 0.0f, 0.0f});
-                const Vec3 weaponPosition{0.0f, 0.80f, 0.40f};
+                const Vec3 weaponPosition{0.0f, 0.74f, 0.70f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
                 applySniperRifleArms(pose, weaponPosition, {});
             }
@@ -501,8 +501,8 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                 setPoseBone(pose, kHeadBone, {0.0f, 0.88f, 0.0f},
                             {2.0f + 3.0f * recoil, 0.0f, 0.0f});
                 const Vec3 weaponPosition{0.0f,
-                                          0.80f + 0.03f * recoil,
-                                          0.40f - 0.06f * recoil};
+                                          0.74f + 0.03f * recoil,
+                                          0.70f - 0.06f * recoil};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
                 applySniperRifleArms(pose, weaponPosition, {});
             }

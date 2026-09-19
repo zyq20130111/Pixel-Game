@@ -102,6 +102,7 @@ private:
     bool previousProneDown_;
     bool previousInteractDown_;
     bool previousRestartDown_;
+    bool previousAiToggleDown_;
     float parkingHintTimer_;
     int playerHealth_;
     int playerMaxHealth_;
