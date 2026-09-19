@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SecurityGuardWeaponRenderer.h"
 #include "WeaponBase.h"
 #include "types.h"
 
@@ -20,6 +19,10 @@ public:
     void render(const Camera& camera,
                 const WeaponRenderMotion& motion) const override;
     float muzzleFlashTimer() const override;
+    void updateThirdPerson(float dt, bool attackActive,
+                           float attackTimer) override;
+    void renderThirdPerson(const GLfloat* weaponMatrix,
+                           bool showMuzzleFlash) const override;
     static void drawRifleModel();
 
 private:
@@ -35,12 +38,6 @@ private:
     static void drawScope(float aimAmount);
 
     float muzzleFlashTimer_;
-};
-
-class SniperRifleGuardRenderer final : public SecurityGuardWeaponRenderer {
-public:
-    void render(const GLfloat* weaponMatrix,
-                bool showMuzzleFlash) const override;
 };
 
 }  // namespace pixel_world

@@ -156,13 +156,20 @@ void SniperRifle::drawRifleModel() {
     drawOptic();
 }
 
-void SniperRifleGuardRenderer::render(const GLfloat* weaponMatrix,
-                                      bool showMuzzleFlash) const {
+void SniperRifle::updateThirdPerson(float dt, bool attackActive,
+                                    float attackTimer) {
+    (void)attackActive;
+    (void)attackTimer;
+    muzzleFlashTimer_ = std::max(0.0f, muzzleFlashTimer_ - dt);
+}
+
+void SniperRifle::renderThirdPerson(const GLfloat* weaponMatrix,
+                                    bool showMuzzleFlash) const {
     glPushMatrix();
     glMultMatrixf(weaponMatrix);
     glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
     glScalef(kPistolScale, kPistolScale, kPistolScale);
-    SniperRifle::drawRifleModel();
+    drawRifleModel();
     glPopMatrix();
 
     if (!showMuzzleFlash) {

@@ -17,9 +17,17 @@ struct WeaponRenderMotion {
     Vec3 rotationDegrees{};
 };
 
+enum class WeaponViewMode {
+    FirstPerson,
+    ThirdPerson,
+};
+
 class WeaponBase {
 public:
     virtual ~WeaponBase();
+
+    void setViewMode(WeaponViewMode mode);
+    WeaponViewMode viewMode() const;
 
     virtual bool update(GLFWwindow* window, const Camera& camera,
                         std::vector<std::unique_ptr<BulletBase>>& bullets,
@@ -28,6 +36,14 @@ public:
     virtual void render(const Camera& camera,
                         const WeaponRenderMotion& motion) const = 0;
     virtual float muzzleFlashTimer() const = 0;
+
+    virtual void updateThirdPerson(float dt, bool attackActive,
+                                   float attackTimer);
+    virtual void renderThirdPerson(const GLfloat* weaponMatrix,
+                                   bool showMuzzleFlash) const;
+
+protected:
+    WeaponViewMode viewMode_ = WeaponViewMode::FirstPerson;
 };
 
 }  // namespace pixel_world

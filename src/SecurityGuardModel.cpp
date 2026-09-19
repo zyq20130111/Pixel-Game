@@ -3,6 +3,7 @@
 #include "SecurityGuardBaton.h"
 #include "SniperRifle.h"
 #include "ThreeDUtils.h"
+#include "WeaponBase.h"
 #include "game_constants.h"
 
 #include <algorithm>
@@ -533,7 +534,7 @@ void drawBoundPart(const VertexBuffer& buffer, const Bone& bone,
 struct SecurityGuardModel::Impl {
     Impl() : unitCube(), bones{} {
         unitCube.addUnitCube();
-        weaponRenderer = std::make_unique<SecurityGuardBaton>();
+        weaponInstance = std::make_unique<SecurityGuardBaton>();
         bones[kRootBone] = {-1, {}, {}, identityMatrix()};
         bones[kTorsoBone] = {kRootBone, {}, {}, identityMatrix()};
         bones[kHeadBone] = {kTorsoBone, {}, {}, identityMatrix()};
@@ -555,12 +556,13 @@ struct SecurityGuardModel::Impl {
                        0.0f);
     }
 
-    void setWeaponRenderer(SecurityGuardWeapon weapon) {
+    void setWeaponInstance(SecurityGuardWeapon weapon) {
         if (weapon == SecurityGuardWeapon::Sniper) {
-            weaponRenderer = std::make_unique<SniperRifleGuardRenderer>();
+            weaponInstance = std::make_unique<SniperRifle>();
         } else {
-            weaponRenderer = std::make_unique<SecurityGuardBaton>();
+            weaponInstance = std::make_unique<SecurityGuardBaton>();
         }
+        weaponInstance->setViewMode(WeaponViewMode::ThirdPerson);
     }
 
     void updateSkeleton(SecurityGuardWeapon weapon,
@@ -589,7 +591,7 @@ struct SecurityGuardModel::Impl {
 
     VertexBuffer unitCube;
     std::array<Bone, kBoneCount> bones;
-    std::unique_ptr<SecurityGuardWeaponRenderer> weaponRenderer;
+    std::unique_ptr<WeaponBase> weaponInstance;
 };
 
 SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
@@ -615,7 +617,7 @@ SecurityGuardModel::SecurityGuardModel(SecurityGuardRole role)
       attackCooldown_(0.0f),
       attackHit_(false),
       impl_(std::make_unique<Impl>()) {
-    impl_->setWeaponRenderer(weapon_);
+    impl_->setWeaponInstance(weapon_);
     setDifficulty(difficulty_);
     reset();
 }
@@ -654,6 +656,8 @@ int SecurityGuardModel::update(
     }
 
     attackCooldown_ = std::max(0.0f, attackCooldown_ - dt);
+    impl_->weaponInstance->updateThirdPerson(
+        dt, state_ == SecurityGuardState::Attacking, attackTimer_);
 
     const Vec3 playerDirection{playerPosition.x - position_.x, 0.0f,
                                playerPosition.z - position_.z};
@@ -988,7 +992,7 @@ void SecurityGuardModel::renderWeaponModel(bool attackActive,
     const bool showMuzzleFlash =
         attackActive && attackTimer >= kGuardAttackHitStart &&
         attackTimer <= kGuardAttackHitStart + 0.12f;
-    impl_->weaponRenderer->render(
+    impl_->weaponInstance->renderThirdPerson(
         impl_->bones[kWeaponBone].worldMatrix.values, showMuzzleFlash);
 }
 
@@ -1031,7 +1035,7 @@ void SecurityGuardModel::setRole(SecurityGuardRole role) {
     role_ = role;
     weapon_ = role == SecurityGuardRole::Captain ? SecurityGuardWeapon::Sniper
                                                   : SecurityGuardWeapon::Baton;
-    impl_->setWeaponRenderer(weapon_);
+    impl_->setWeaponInstance(weapon_);
     maxHealth_ = maxHealthForDifficulty(difficulty_);
     health_ = maxHealth_;
 }
@@ -1044,7 +1048,7 @@ void SecurityGuardModel::setDifficulty(Difficulty difficulty) {
 
 void SecurityGuardModel::setWeapon(SecurityGuardWeapon weapon) {
     weapon_ = weapon;
-    impl_->setWeaponRenderer(weapon_);
+    impl_->setWeaponInstance(weapon_);
 }
 
 void SecurityGuardModel::setPosition(const Vec3& position) {
