@@ -1,5 +1,6 @@
 #include "SecurityGuardModel.h"
 
+#include "SniperRifle.h"
 #include "ThreeDUtils.h"
 #include "game_constants.h"
 
@@ -35,10 +36,11 @@ constexpr float kGuardMaxChaseDistance = 17.0f;
 constexpr float kSniperUpperArmLength = 0.60f;
 constexpr float kSniperLowerArmLength = 0.56f;
 constexpr float kSniperShoulderForward = 0.22f;
-constexpr float kSniperFrontGripLocalY = -0.06f;
-constexpr float kSniperFrontGripLocalZ = 0.38f;
-constexpr float kSniperRearGripLocalY = -0.08f;
-constexpr float kSniperRearGripLocalZ = 0.10f;
+constexpr float kSniperAimShoulderForward = 0.30f;
+constexpr float kSniperFrontGripLocalY = -0.02f;
+constexpr float kSniperFrontGripLocalZ = 0.46f;
+constexpr float kSniperRearGripLocalY = -0.18f;
+constexpr float kSniperRearGripLocalZ = 0.08f;
 
 float smoothStep01(float value) {
     const float t = std::clamp(value, 0.0f, 1.0f);
@@ -364,7 +366,8 @@ void applySniperArmPose(Pose& pose, BoneId upperBone, BoneId lowerBone,
 }
 
 void applySniperRifleArms(Pose& pose, const Vec3& weaponPosition,
-                          const Vec3& weaponRotationDegrees) {
+                          const Vec3& weaponRotationDegrees,
+                          float shoulderForward) {
     const Matrix4 weaponMatrix =
         boneLocalMatrix(weaponPosition, weaponRotationDegrees);
     const Vec3 leftHandTarget =
@@ -373,8 +376,8 @@ void applySniperRifleArms(Pose& pose, const Vec3& weaponPosition,
     const Vec3 rightHandTarget =
         transformPoint(weaponMatrix, {0.0f, kSniperRearGripLocalY,
                                      kSniperRearGripLocalZ});
-    const Vec3 leftShoulder{-0.62f, 0.30f, kSniperShoulderForward};
-    const Vec3 rightShoulder{0.62f, 0.30f, kSniperShoulderForward};
+    const Vec3 leftShoulder{-0.62f, 0.30f, shoulderForward};
+    const Vec3 rightShoulder{0.62f, 0.30f, shoulderForward};
 
     applySniperArmPose(pose, kLeftUpperArmBone, kLeftLowerArmBone,
                        leftShoulder, leftHandTarget, 1.0f);
@@ -404,9 +407,10 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                 setPoseBone(pose, kWeaponBone, {0.0f, -0.58f, 0.05f},
                             {0.0f, 0.0f, -15.0f});
             } else {
-                const Vec3 weaponPosition{0.0f, 0.25f, 0.55f};
+                const Vec3 weaponPosition{0.0f, 0.25f, 0.50f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {},
+                                     kSniperShoulderForward);
             }
             break;
         }
@@ -443,9 +447,10 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
             } else {
                 const Vec3 weaponPosition{0.0f,
                                           0.25f + gait * 0.015f,
-                                          0.55f - gait * 0.02f};
+                                          0.50f - gait * 0.02f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {},
+                                     kSniperShoulderForward);
             }
             break;
         }
@@ -474,7 +479,8 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                             {2.0f - sway, 0.0f, 0.0f});
                 const Vec3 weaponPosition{0.0f, 0.74f, 0.70f};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {},
+                                     kSniperAimShoulderForward);
             }
             break;
         }
@@ -504,7 +510,8 @@ void makeSecurityPose(Pose& pose, SecurityGuardWeapon weapon,
                                           0.74f + 0.03f * recoil,
                                           0.70f - 0.06f * recoil};
                 setPoseBone(pose, kWeaponBone, weaponPosition, {});
-                applySniperRifleArms(pose, weaponPosition, {});
+                applySniperRifleArms(pose, weaponPosition, {},
+                                     kSniperAimShoulderForward);
             }
             break;
         }
@@ -949,24 +956,19 @@ void SecurityGuardModel::render() const {
                   {0.22f, 0.06f, 0.05f}, kPoliceMouth);
 
     if (weapon_ == SecurityGuardWeapon::Sniper) {
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.05f, -0.24f},
-                      {0.16f, 0.18f, 0.46f}, kSniperStock);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.02f, 0.10f},
-                      {0.16f, 0.16f, 0.52f}, kSniperMetalDark);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 0.62f},
-                      {0.06f, 0.06f, 0.56f}, kSniperBarrel);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.20f, 0.10f},
-                      {0.07f, 0.10f, 0.30f}, kSniperScope);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.20f, 0.16f},
-                      {0.08f, 0.18f, 0.10f}, kSniperMetalDark);
-        drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 0.95f},
-                      {0.09f, 0.09f, 0.12f}, kSniperBarrelDark);
+        glPushMatrix();
+        glMultMatrixf(impl_->bones[kWeaponBone].worldMatrix.values);
+        glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
+        glScalef(kPistolScale, kPistolScale, kPistolScale);
+        SniperRifle::drawRifleModel();
+        glPopMatrix();
+
         if (attackActive && attackTimer_ >= kGuardAttackHitStart &&
             attackTimer_ <= kGuardAttackHitStart + 0.12f) {
-            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 1.04f},
-                          {0.20f, 0.20f, 0.14f}, kMuzzleFlashOuter);
-            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.05f, 1.12f},
-                          {0.09f, 0.09f, 0.12f}, kMuzzleFlashCore);
+            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.08f, 1.53f},
+                          {0.23f, 0.23f, 0.37f}, kMuzzleFlashOuter);
+            drawBoundPart(impl_->unitCube, weaponBone, {0.0f, 0.08f, 1.67f},
+                          {0.13f, 0.13f, 0.33f}, kMuzzleFlashCore);
         }
     } else {
         drawBoundPart(impl_->unitCube, weaponBone, {0.0f, -0.05f, 0.0f},

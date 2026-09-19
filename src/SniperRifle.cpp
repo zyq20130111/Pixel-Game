@@ -149,6 +149,13 @@ void SniperRifle::reset() {
     muzzleFlashTimer_ = 0.0f;
 }
 
+void SniperRifle::drawRifleModel() {
+    drawStock();
+    drawReceiverAndMagazine();
+    drawForeEndAndBarrel();
+    drawOptic();
+}
+
 bool SniperRifle::update(GLFWwindow* window, const Camera& camera,
                          std::vector<std::unique_ptr<BulletBase>>& bullets,
                          SoundManager& soundManager, bool& previousFireDown,
@@ -205,10 +212,7 @@ void SniperRifle::render(const Camera& camera,
 
     drawMuzzleFlash(muzzleFlashTimer_);
 
-    drawStock();
-    drawReceiverAndMagazine();
-    drawForeEndAndBarrel();
-    drawOptic();
+    drawRifleModel();
     drawScope(camera.aimAmount());
 
     FirstPersonHands::drawGrip(FirstPersonHandAnimation::PistolFire,

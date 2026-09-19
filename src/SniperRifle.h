@@ -19,6 +19,7 @@ public:
     void render(const Camera& camera,
                 const WeaponRenderMotion& motion) const override;
     float muzzleFlashTimer() const override;
+    static void drawRifleModel();
 
 private:
     static float bob(bool cameraMoving, bool cameraRunning,
