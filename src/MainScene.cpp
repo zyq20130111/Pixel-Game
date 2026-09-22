@@ -287,7 +287,7 @@ MainScene::MainScene()
       previousProneDown_(false),
       previousInteractDown_(false),
       previousRestartDown_(false),
-      previousAiToggleDown_(false),
+      previousFpsToggleDown_(false),
       parkingHintTimer_(0.0f),
       playerHealth_(kCharacterMaxHp),
       playerMaxHealth_(kCharacterMaxHp),
@@ -296,7 +296,11 @@ MainScene::MainScene()
       previousEscapeDown_(false),
       exitPromptVisible_(false),
       previousPromptMouseDown_(false),
-      promptMouse_{0.0f, 0.0f, false} {}
+      promptMouse_{0.0f, 0.0f, false},
+      fpsDisplayVisible_(false),
+      fps_(0.0f),
+      fpsAccumulator_(0.0f),
+      fpsFrameCount_(0) {}
 
 MainScene::~MainScene() {
     if (window_ != nullptr) {
@@ -471,7 +475,7 @@ void MainScene::resetGame() {
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     previousRestartDown_ =
         glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
-    previousAiToggleDown_ =
+    previousFpsToggleDown_ =
         glfwGetKey(window_, GLFW_KEY_F1) == GLFW_PRESS;
     previousJumpDown_ =
         glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
@@ -528,11 +532,20 @@ void MainScene::updateExitPrompt() {
 }
 
 void MainScene::updateGameplay(float dt) {
-    const bool aiToggleDown = glfwGetKey(window_, GLFW_KEY_F1) == GLFW_PRESS;
-    if (aiToggleDown && !previousAiToggleDown_) {
-        parkingLotScene_.setAiEnabled(!parkingLotScene_.aiEnabled());
+    const bool fpsToggleDown =
+        glfwGetKey(window_, GLFW_KEY_F1) == GLFW_PRESS;
+    if (fpsToggleDown && !previousFpsToggleDown_) {
+        fpsDisplayVisible_ = !fpsDisplayVisible_;
     }
-    previousAiToggleDown_ = aiToggleDown;
+    previousFpsToggleDown_ = fpsToggleDown;
+
+    fpsAccumulator_ += dt;
+    fpsFrameCount_ += 1;
+    if (fpsAccumulator_ >= 0.5f) {
+        fps_ = static_cast<float>(fpsFrameCount_) / fpsAccumulator_;
+        fpsAccumulator_ = 0.0f;
+        fpsFrameCount_ = 0;
+    }
 
     const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
     const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
@@ -748,6 +761,7 @@ void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     if (state_ == AppState::Playing) {
         renderParkingHud();
         renderWeaponInventory();
+        renderFpsOverlay();
     }
 }
 
@@ -1354,6 +1368,58 @@ void MainScene::renderWeaponInventory() const {
                           pistolSlot.y + 9.0f * uiScale, keyScale, keyColor);
     ThreeDUtils::drawText("3", sniperSlot.x + 8.0f * uiScale,
                           sniperSlot.y + 9.0f * uiScale, keyScale, keyColor);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
+
+void MainScene::renderFpsOverlay() const {
+    if (!fpsDisplayVisible_ || framebufferWidth_ <= 0 ||
+        framebufferHeight_ <= 0) {
+        return;
+    }
+
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+    const float margin = 20.0f * uiScale;
+    const float textScale = std::max(1.0f, 2.2f * uiScale);
+    const std::string fpsText =
+        "FPS " + std::to_string(static_cast<int>(std::round(fps_)));
+    const float textWidth =
+        ThreeDUtils::textWidth(fpsText, textScale);
+    const float panelWidth = textWidth + 20.0f * uiScale;
+    const float panelHeight = 34.0f * uiScale;
+    const Rect panel{
+        static_cast<float>(framebufferWidth_) - margin - panelWidth,
+        margin,
+        panelWidth,
+        panelHeight,
+    };
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    ThreeDUtils::drawRect2D(
+        {panel.x + 5.0f * uiScale, panel.y + 6.0f * uiScale,
+         panel.width, panel.height},
+        kInkColor, 0.55f);
+    ThreeDUtils::drawRect2D(panel, Color{0.03f, 0.07f, 0.11f}, 0.88f);
+    ThreeDUtils::drawFrame2D(
+        panel, kPanelBottom, std::max(2.0f, 2.5f * uiScale));
+    ThreeDUtils::drawText(
+        fpsText, panel.x + 10.0f * uiScale,
+        panel.y + (panel.height - 7.0f * textScale) * 0.5f,
+        textScale, Color{0.95f, 0.98f, 0.92f});
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);

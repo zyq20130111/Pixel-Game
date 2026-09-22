@@ -52,6 +52,7 @@ private:
     void renderSniperScopeOverlay(const Camera& camera) const;
     void renderParkingHud() const;
     void renderWeaponInventory() const;
+    void renderFpsOverlay() const;
     void updateWeaponSelection(float dt);
     void requestWeapon(WeaponType weapon);
     void renderWeapon(const Camera& camera, WeaponType weapon,
@@ -103,7 +104,7 @@ private:
     bool previousProneDown_;
     bool previousInteractDown_;
     bool previousRestartDown_;
-    bool previousAiToggleDown_;
+    bool previousFpsToggleDown_;
     float parkingHintTimer_;
     int playerHealth_;
     int playerMaxHealth_;
@@ -113,6 +114,10 @@ private:
     bool exitPromptVisible_;
     bool previousPromptMouseDown_;
     MouseState promptMouse_;
+    bool fpsDisplayVisible_;
+    float fps_;
+    float fpsAccumulator_;
+    int fpsFrameCount_;
 };
 
 }  // namespace pixel_world
