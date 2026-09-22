@@ -402,6 +402,7 @@ bool MainScene::initialize() {
     int windowWidth = kWindowWidth;
     int windowHeight = kWindowHeight;
 
+    glfwWindowHint(GLFW_SAMPLES, 4);
     if (videoMode != nullptr) {
         windowWidth = videoMode->width;
         windowHeight = videoMode->height;
@@ -1010,21 +1011,65 @@ void MainScene::renderSniperScopeOverlay(const Camera& camera) const {
     const float centerX = width * 0.5f;
     const float centerY = height * 0.5f;
     const float lensRadius = std::min(width, height) * 0.42f;
-    const float fadeRadius =
-        lensRadius + std::max(10.0f * uiScale, lensRadius * 0.08f);
-    constexpr int kScopeSegments = 96;
-    const float screenMargin = 6.0f * uiScale;
-    const auto edgeRadius = [&](float angle) {
-        const float x = std::cos(angle);
-        const float y = std::sin(angle);
-        const float horizontal =
-            (width * 0.5f + screenMargin) /
-            std::max(std::abs(x), 0.0001f);
-        const float vertical =
-            (height * 0.5f + screenMargin) /
-            std::max(std::abs(y), 0.0001f);
-        return std::min(horizontal, vertical);
-    };
+
+    const float texScale = 1024.0f / std::max(width, height);
+    const int texWidth = std::max(
+        1, static_cast<int>(std::round(width * texScale)));
+    const int texHeight = std::max(
+        1, static_cast<int>(std::round(height * texScale)));
+
+    static GLuint scopeTexture = 0;
+    static int cachedTexWidth = 0;
+    static int cachedTexHeight = 0;
+    if (scopeTexture == 0 || cachedTexWidth != texWidth ||
+        cachedTexHeight != texHeight) {
+        if (scopeTexture != 0) {
+            glDeleteTextures(1, &scopeTexture);
+        }
+
+        const float fadeWidth =
+            std::max(18.0f * uiScale, lensRadius * 0.14f);
+        std::vector<unsigned char> pixels(
+            static_cast<std::size_t>(texWidth) * texHeight * 4u);
+        for (int y = 0; y < texHeight; ++y) {
+            for (int x = 0; x < texWidth; ++x) {
+                const float screenX =
+                    (static_cast<float>(x) + 0.5f) /
+                    static_cast<float>(texWidth) * width;
+                const float screenY =
+                    (static_cast<float>(y) + 0.5f) /
+                    static_cast<float>(texHeight) * height;
+                const float dx = screenX - centerX;
+                const float dy = screenY - centerY;
+                const float radius = std::sqrt(dx * dx + dy * dy);
+                const float t = std::clamp((radius - lensRadius) / fadeWidth,
+                                           0.0f, 1.0f);
+                const unsigned char alpha = static_cast<unsigned char>(
+                    std::round(ThreeDUtils::smoothStep(t) * 255.0f));
+                const std::size_t index =
+                    (static_cast<std::size_t>(y) * texWidth + x) * 4u;
+                pixels[index] = 0;
+                pixels[index + 1] = 0;
+                pixels[index + 2] = 0;
+                pixels[index + 3] = alpha;
+            }
+        }
+
+        glGenTextures(1, &scopeTexture);
+        glBindTexture(GL_TEXTURE_2D, scopeTexture);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        cachedTexWidth = texWidth;
+        cachedTexHeight = texHeight;
+    }
 
     ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
     glDisable(GL_DEPTH_TEST);
@@ -1032,49 +1077,22 @@ void MainScene::renderSniperScopeOverlay(const Camera& camera) const {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    const float maskAlpha = 0.86f * scopeAmount;
-    glBegin(GL_TRIANGLE_STRIP);
-    for (int segment = 0; segment <= kScopeSegments; ++segment) {
-        const float angle =
-            constants::kPi * 2.0f * static_cast<float>(segment) /
-            static_cast<float>(kScopeSegments);
-        const float x = std::cos(angle);
-        const float y = std::sin(angle);
-        const float radius = edgeRadius(angle);
-
-        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
-        glVertex2f(centerX + x * radius, centerY + y * radius);
-        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
-        glVertex2f(centerX + x * fadeRadius, centerY + y * fadeRadius);
-    }
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, scopeTexture);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glColor4f(0.0f, 0.0f, 0.0f, scopeAmount);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(0.0f, 0.0f);
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(width, 0.0f);
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(width, height);
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(0.0f, height);
     glEnd();
-
-    glBegin(GL_TRIANGLE_STRIP);
-    for (int segment = 0; segment <= kScopeSegments; ++segment) {
-        const float angle =
-            constants::kPi * 2.0f * static_cast<float>(segment) /
-            static_cast<float>(kScopeSegments);
-        const float x = std::cos(angle);
-        const float y = std::sin(angle);
-
-        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
-        glVertex2f(centerX + x * fadeRadius, centerY + y * fadeRadius);
-        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-        glVertex2f(centerX + x * lensRadius, centerY + y * lensRadius);
-    }
-    glEnd();
-
-    glLineWidth(std::max(2.0f, 4.0f * uiScale));
-    glColor4f(0.0f, 0.0f, 0.0f, 0.95f * scopeAmount);
-    glBegin(GL_LINE_LOOP);
-    for (int segment = 0; segment < kScopeSegments; ++segment) {
-        const float angle =
-            constants::kPi * 2.0f * static_cast<float>(segment) /
-            static_cast<float>(kScopeSegments);
-        glVertex2f(centerX + std::cos(angle) * lensRadius,
-                   centerY + std::sin(angle) * lensRadius);
-    }
-    glEnd();
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
 
     const float pixel = std::max(2.0f, std::round(2.5f * uiScale));
     const float thickness = pixel;

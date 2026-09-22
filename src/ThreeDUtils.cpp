@@ -11,6 +11,10 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef GL_MULTISAMPLE
+#define GL_MULTISAMPLE 0x809D
+#endif
+
 namespace pixel_world {
 namespace {
 
@@ -576,6 +580,7 @@ void ThreeDUtils::framebufferSizeCallback(GLFWwindow*, int width, int height) {
 
 void ThreeDUtils::configureRendering() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glDisable(GL_CULL_FACE);
