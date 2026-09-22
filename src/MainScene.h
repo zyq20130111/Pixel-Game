@@ -49,6 +49,7 @@ private:
     void renderScene() const;
     void renderImpactEffects() const;
     void renderCrosshair() const;
+    void renderSniperScopeOverlay(const Camera& camera) const;
     void renderParkingHud() const;
     void renderWeaponInventory() const;
     void updateWeaponSelection(float dt);

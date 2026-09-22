@@ -26,6 +26,9 @@ namespace {
 
 using namespace constants;
 
+constexpr float kSniperScopeOverlayStart = 0.55f;
+constexpr float kSniperScopeOverlayFade = 0.45f;
+
 struct ExitPromptLayout {
     Rect panel;
     Rect yesButton;
@@ -730,8 +733,15 @@ void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     }
 
     if (showWeapon) {
-        renderEquippedWeapon(camera);
-        renderCrosshair();
+        const bool sniperScoped =
+            equippedWeapon_ == WeaponType::Sniper && !weaponSwitching_ &&
+            camera.aimAmount() > kSniperScopeOverlayStart;
+        if (sniperScoped) {
+            renderSniperScopeOverlay(camera);
+        } else {
+            renderEquippedWeapon(camera);
+            renderCrosshair();
+        }
     }
 
     if (state_ == AppState::Playing) {
@@ -965,6 +975,134 @@ void MainScene::renderCrosshair() const {
     }
     for (const Rect& piece : pieces) {
         ThreeDUtils::drawRect2D(piece, kCrosshairCore, 0.92f);
+    }
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
+
+void MainScene::renderSniperScopeOverlay(const Camera& camera) const {
+    if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
+        return;
+    }
+
+    const float aimAmount = camera.aimAmount();
+    if (aimAmount <= kSniperScopeOverlayStart) {
+        return;
+    }
+
+    const float scopeAmount =
+        ThreeDUtils::smoothStep((aimAmount - kSniperScopeOverlayStart) /
+                                kSniperScopeOverlayFade);
+    if (scopeAmount <= 0.0f) {
+        return;
+    }
+
+    const float width = static_cast<float>(framebufferWidth_);
+    const float height = static_cast<float>(framebufferHeight_);
+    const float uiScale =
+        std::min(width / static_cast<float>(kWindowWidth),
+                 height / static_cast<float>(kWindowHeight));
+    const float centerX = width * 0.5f;
+    const float centerY = height * 0.5f;
+    const float lensRadius = std::min(width, height) * 0.42f;
+    const float fadeRadius =
+        lensRadius + std::max(10.0f * uiScale, lensRadius * 0.08f);
+    constexpr int kScopeSegments = 96;
+    const float screenMargin = 6.0f * uiScale;
+    const auto edgeRadius = [&](float angle) {
+        const float x = std::cos(angle);
+        const float y = std::sin(angle);
+        const float horizontal =
+            (width * 0.5f + screenMargin) /
+            std::max(std::abs(x), 0.0001f);
+        const float vertical =
+            (height * 0.5f + screenMargin) /
+            std::max(std::abs(y), 0.0001f);
+        return std::min(horizontal, vertical);
+    };
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    const float maskAlpha = 0.86f * scopeAmount;
+    glBegin(GL_TRIANGLE_STRIP);
+    for (int segment = 0; segment <= kScopeSegments; ++segment) {
+        const float angle =
+            constants::kPi * 2.0f * static_cast<float>(segment) /
+            static_cast<float>(kScopeSegments);
+        const float x = std::cos(angle);
+        const float y = std::sin(angle);
+        const float radius = edgeRadius(angle);
+
+        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
+        glVertex2f(centerX + x * radius, centerY + y * radius);
+        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
+        glVertex2f(centerX + x * fadeRadius, centerY + y * fadeRadius);
+    }
+    glEnd();
+
+    glBegin(GL_TRIANGLE_STRIP);
+    for (int segment = 0; segment <= kScopeSegments; ++segment) {
+        const float angle =
+            constants::kPi * 2.0f * static_cast<float>(segment) /
+            static_cast<float>(kScopeSegments);
+        const float x = std::cos(angle);
+        const float y = std::sin(angle);
+
+        glColor4f(0.0f, 0.0f, 0.0f, maskAlpha);
+        glVertex2f(centerX + x * fadeRadius, centerY + y * fadeRadius);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(centerX + x * lensRadius, centerY + y * lensRadius);
+    }
+    glEnd();
+
+    glLineWidth(std::max(2.0f, 4.0f * uiScale));
+    glColor4f(0.0f, 0.0f, 0.0f, 0.95f * scopeAmount);
+    glBegin(GL_LINE_LOOP);
+    for (int segment = 0; segment < kScopeSegments; ++segment) {
+        const float angle =
+            constants::kPi * 2.0f * static_cast<float>(segment) /
+            static_cast<float>(kScopeSegments);
+        glVertex2f(centerX + std::cos(angle) * lensRadius,
+                   centerY + std::sin(angle) * lensRadius);
+    }
+    glEnd();
+
+    const float pixel = std::max(2.0f, std::round(2.5f * uiScale));
+    const float thickness = pixel;
+    const float armLength = lensRadius * 0.32f;
+    const float gap = lensRadius * 0.055f;
+    const float halfThickness = thickness * 0.5f;
+
+    const Rect left{centerX - gap - armLength, centerY - halfThickness,
+                    armLength, thickness};
+    const Rect right{centerX + gap, centerY - halfThickness, armLength,
+                     thickness};
+    const Rect top{centerX - halfThickness, centerY - gap - armLength,
+                   thickness, armLength};
+    const Rect bottom{centerX - halfThickness, centerY + gap, thickness,
+                      armLength};
+    const Rect dot{centerX - halfThickness, centerY - halfThickness, thickness,
+                   thickness};
+    const std::array<Rect, 5> pieces{left, right, top, bottom, dot};
+
+    for (const Rect& piece : pieces) {
+        ThreeDUtils::drawRect2D(
+            {piece.x - pixel, piece.y - pixel, piece.width + pixel * 2.0f,
+             piece.height + pixel * 2.0f},
+            kCrosshairShadow, 0.55f * scopeAmount);
+    }
+    for (const Rect& piece : pieces) {
+        ThreeDUtils::drawRect2D(piece, kCrosshairCore,
+                                0.92f * scopeAmount);
     }
 
     glDisable(GL_BLEND);
