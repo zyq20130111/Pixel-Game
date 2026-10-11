@@ -476,7 +476,7 @@ bool SniperRifle::update(GLFWwindow* window, const Camera& camera,
             muzzlePosition, direction * kSniperBulletSpeed,
             kSniperBulletLifetime));
         muzzleFlashTimer_ = kMuzzleFlashDuration;
-        soundManager.play2D("pistol.wav", 1.0f);
+        soundManager.play2D("sniper.wav", 1.0f);
         fired = true;
     }
     previousFireDown = fireDown;

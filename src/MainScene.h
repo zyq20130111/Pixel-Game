@@ -16,6 +16,7 @@
 #include "SoundManager.h"
 #include "types.h"
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -71,6 +72,17 @@ private:
                                   float& hitT);
     static Vec3 pointOnSegment(const Vec3& start, const Vec3& end, float t);
     void performKnifeAttack();
+    bool sceneSegmentHitsGuard(const Vec3& start, const Vec3& end,
+                               float& hitT,
+                               std::size_t& guardIndex) const;
+    bool sceneSegmentHitsGeometry(const Vec3& start, const Vec3& end,
+                                  float& hitT) const;
+    void sceneApplyGuardDamage(std::size_t guardIndex,
+                               const Vec3& hitPosition);
+    void sceneApplyGuardSniperDamage(std::size_t guardIndex,
+                                     const Vec3& hitPosition);
+    void sceneApplyGuardKnifeDamage(std::size_t guardIndex,
+                                    const Vec3& hitPosition);
     void spawnImpactEffect(const Vec3& position, ImpactType type);
     void renderGroundImpactEffect(const ImpactEffect& effect) const;
     void renderGeometryImpactEffect(const ImpactEffect& effect) const;

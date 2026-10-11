@@ -728,6 +728,34 @@ void MainScene::updateSecurityGameplay(float dt) {
                               {0.0f, 1.0f, 0.0f});
     soundManager_.update();
 
+    updateWeaponSelection(dt);
+    bool playerAttacked = false;
+    if (equippedWeapon_ == WeaponType::Knife) {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            knife_.update(window_, camera_, bullets_, soundManager_,
+                          previousFireDown_, dt);
+    } else if (equippedWeapon_ == WeaponType::Pistol) {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            pistol_.update(window_, camera_, bullets_, soundManager_,
+                           previousFireDown_, dt);
+    } else {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            sniperRifle_.update(window_, camera_, bullets_, soundManager_,
+                                previousFireDown_, dt);
+    }
+    if (playerAttacked && equippedWeapon_ == WeaponType::Knife) {
+        performKnifeAttack();
+    }
+
     const bool interactDown =
         glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
     if (interactDown && !previousInteractDown_) {
@@ -751,8 +779,61 @@ void MainScene::updateSecurityGameplay(float dt) {
     }
     playerDamageFlashTimer_ =
         std::max(0.0f, playerDamageFlashTimer_ - dt);
+
+    if (securityCheckScene_.sniperFired()) {
+        soundManager_.play3D("sniper.wav",
+                             securityCheckScene_.sniperFiredPosition(), 1.0f);
+    }
+
     updateImpactEffects(dt);
+    updateBullets(dt);
 }
+
+bool MainScene::sceneSegmentHitsGuard(const Vec3& start, const Vec3& end,
+                                      float& hitT,
+                                      std::size_t& guardIndex) const {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        return securityCheckScene_.segmentHitsGuard(start, end, hitT,
+                                                    guardIndex);
+    }
+    return parkingLotScene_.segmentHitsGuard(start, end, hitT, guardIndex);
+}
+
+bool MainScene::sceneSegmentHitsGeometry(const Vec3& start, const Vec3& end,
+                                         float& hitT) const {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        return securityCheckScene_.segmentHitsGeometry(start, end, hitT);
+    }
+    return parkingLotScene_.segmentHitsGeometry(start, end, hitT);
+}
+
+void MainScene::sceneApplyGuardDamage(std::size_t guardIndex,
+                                      const Vec3& hitPosition) {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        securityCheckScene_.applyGuardDamage(guardIndex, hitPosition);
+    } else {
+        parkingLotScene_.applyGuardDamage(guardIndex, hitPosition);
+    }
+}
+
+void MainScene::sceneApplyGuardSniperDamage(std::size_t guardIndex,
+                                            const Vec3& hitPosition) {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        securityCheckScene_.applyGuardSniperDamage(guardIndex, hitPosition);
+    } else {
+        parkingLotScene_.applyGuardSniperDamage(guardIndex, hitPosition);
+    }
+}
+
+void MainScene::sceneApplyGuardKnifeDamage(std::size_t guardIndex,
+                                           const Vec3& hitPosition) {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        securityCheckScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
+    } else {
+        parkingLotScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
+    }
+}
+
 void MainScene::updateBullets(float dt) {
     for (const std::unique_ptr<BulletBase>& bullet : bullets_) {
         const Vec3 previousPosition = bullet->position();
@@ -765,8 +846,8 @@ void MainScene::updateBullets(float dt) {
 
         std::size_t guardIndex = 0;
         float guardHitT = 0.0f;
-        if (parkingLotScene_.segmentHitsGuard(previousPosition, nextPosition,
-                                               guardHitT, guardIndex) &&
+        if (sceneSegmentHitsGuard(previousPosition, nextPosition,
+                                      guardHitT, guardIndex) &&
             guardHitT < closestHitT) {
             hit = true;
             hitType = ImpactType::Character;
@@ -774,8 +855,8 @@ void MainScene::updateBullets(float dt) {
         }
 
         float geometryHitT = 0.0f;
-        if (parkingLotScene_.segmentHitsGeometry(previousPosition, nextPosition,
-                                                  geometryHitT) &&
+        if (sceneSegmentHitsGeometry(previousPosition, nextPosition,
+                                          geometryHitT) &&
             geometryHitT < closestHitT) {
             hit = true;
             hitType = ImpactType::Geometry;
@@ -798,10 +879,9 @@ void MainScene::updateBullets(float dt) {
             spawnImpactEffect(hitPosition, hitType);
             if (hitType == ImpactType::Character) {
                 if (bullet->type() == BulletType::Sniper) {
-                    parkingLotScene_.applyGuardSniperDamage(guardIndex,
-                                                            hitPosition);
+                    sceneApplyGuardSniperDamage(guardIndex, hitPosition);
                 } else {
-                    parkingLotScene_.applyGuardDamage(guardIndex, hitPosition);
+                    sceneApplyGuardDamage(guardIndex, hitPosition);
                 }
             }
         }
@@ -1707,7 +1787,7 @@ void MainScene::performKnifeAttack() {
 
     std::size_t guardIndex = 0;
     float guardHitT = 0.0f;
-    if (parkingLotScene_.segmentHitsGuard(start, end, guardHitT, guardIndex) &&
+    if (sceneSegmentHitsGuard(start, end, guardHitT, guardIndex) &&
         guardHitT < closestHitT) {
         hit = true;
         hitType = ImpactType::Character;
@@ -1715,7 +1795,7 @@ void MainScene::performKnifeAttack() {
     }
 
     float geometryHitT = 0.0f;
-    if (parkingLotScene_.segmentHitsGeometry(start, end, geometryHitT) &&
+    if (sceneSegmentHitsGeometry(start, end, geometryHitT) &&
         geometryHitT < closestHitT) {
         hit = true;
         hitType = ImpactType::Geometry;
@@ -1729,7 +1809,7 @@ void MainScene::performKnifeAttack() {
     const Vec3 hitPosition = pointOnSegment(start, end, closestHitT);
     spawnImpactEffect(hitPosition, hitType);
     if (hitType == ImpactType::Character) {
-        parkingLotScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
+        sceneApplyGuardKnifeDamage(guardIndex, hitPosition);
     }
 }
 
