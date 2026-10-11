@@ -650,6 +650,12 @@ void MainScene::updateGameplay(float dt) {
     }
     playerDamageFlashTimer_ =
         std::max(0.0f, playerDamageFlashTimer_ - dt);
+
+    if (parkingLotScene_.sniperFired()) {
+        soundManager_.play3D("sniper.wav",
+                             parkingLotScene_.sniperFiredPosition(), 1.0f);
+    }
+
     parkingLotScene_.tryCollectAccessCard(camera_.position());
     parkingHintTimer_ = std::max(0.0f, parkingHintTimer_ - dt);
     const bool interactDown =

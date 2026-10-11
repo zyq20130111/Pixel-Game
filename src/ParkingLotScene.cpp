@@ -83,6 +83,8 @@ ParkingLotScene::ParkingLotScene(Language language)
       accessCardPosition_({0.0f, 1.1f, -6.6f}),
       language_(language),
       difficulty_(Difficulty::Normal),
+      sniperFired_(false),
+      sniperFiredPosition_{},
       guards_{SecurityGuardModel(SecurityGuardRole::Guard),
               SecurityGuardModel(SecurityGuardRole::Guard),
               SecurityGuardModel(SecurityGuardRole::Captain)} {}
@@ -98,6 +100,8 @@ void ParkingLotScene::reset(Difficulty difficulty) {
     groupAlertTimer_ = 0.0f;
     aiEnabled_ = true;
     accessCardPosition_ = {0.0f, 1.1f, -6.6f};
+    sniperFired_ = false;
+    sniperFiredPosition_ = {};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
     guards_[0].setDifficulty(difficulty_);
@@ -154,6 +158,7 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
     groupAlertTimer_ = std::max(0.0f, groupAlertTimer_ - dt);
     groupAlerted_ = groupAlertTimer_ > 0.0f;
 
+    sniperFired_ = false;
     int playerDamage = 0;
     for (std::size_t index = 0; index < guards_.size(); ++index) {
         SecurityGuardModel& guard = guards_[index];
@@ -167,6 +172,7 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
                  ? guardSeesPlayer[index]
                  : canGuardHitPlayer(guard, playerPosition));
         const Vec3 currentGuardPosition = guard.position();
+        const bool wasAttacking = guard.attacking();
         playerDamage += guard.update(
             dt, playerPosition, playerDetected, weaponCanHitPlayer,
             [this, index, &playerPosition, currentGuardPosition](
@@ -174,6 +180,11 @@ int ParkingLotScene::update(float dt, const Vec3& playerPosition,
                 return guardPositionBlocked(position, currentGuardPosition,
                                             index, playerPosition);
             });
+        if (guard.weapon() == SecurityGuardWeapon::Sniper &&
+            guard.attacking() && !wasAttacking) {
+            sniperFired_ = true;
+            sniperFiredPosition_ = guard.position();
+        }
     }
 
     if (guards_[2].defeated()) {
@@ -433,6 +444,14 @@ bool ParkingLotScene::elevatorOpen() const {
 
 bool ParkingLotScene::levelComplete() const {
     return levelComplete_;
+}
+
+bool ParkingLotScene::sniperFired() const {
+    return sniperFired_;
+}
+
+Vec3 ParkingLotScene::sniperFiredPosition() const {
+    return sniperFiredPosition_;
 }
 
 bool ParkingLotScene::circleIntersectsBox(float circleX, float circleZ,

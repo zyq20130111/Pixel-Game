@@ -49,6 +49,8 @@ public:
     bool accessCardObtained() const;
     bool elevatorOpen() const;
     bool levelComplete() const;
+    bool sniperFired() const;
+    Vec3 sniperFiredPosition() const;
 
 private:
     static bool circleIntersectsBox(float circleX, float circleZ, float radius,
@@ -89,6 +91,8 @@ private:
     Vec3 accessCardPosition_;
     Language language_;
     Difficulty difficulty_;
+    bool sniperFired_;
+    Vec3 sniperFiredPosition_;
     std::array<SecurityGuardModel, kGuardCount> guards_;
 };
 
