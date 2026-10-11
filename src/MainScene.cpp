@@ -264,6 +264,9 @@ MainScene::MainScene()
       camera_(),
       soundManager_(),
       parkingLotScene_(language_),
+      securityCheckScene_(language_),
+      activeScene_(SceneType::ParkingLot),
+      loadingDestination_(SceneType::ParkingLot),
       knife_(),
       pistol_(),
       sniperRifle_(),
@@ -288,6 +291,7 @@ MainScene::MainScene()
       previousInteractDown_(false),
       previousRestartDown_(false),
       previousFpsToggleDown_(false),
+      securityAlarmWasTriggered_(false),
       parkingHintTimer_(0.0f),
       playerHealth_(kCharacterMaxHp),
       playerMaxHealth_(kCharacterMaxHp),
@@ -349,11 +353,11 @@ int MainScene::run() {
                 soundManager_.play2D("btnclick.wav", 1.0f);
             }
             if (action == MenuAction::DifficultyEasy) {
-                startLoading(Difficulty::Easy);
+                startLoading(SceneType::ParkingLot, Difficulty::Easy);
             } else if (action == MenuAction::DifficultyNormal) {
-                startLoading(Difficulty::Normal);
+                startLoading(SceneType::ParkingLot, Difficulty::Normal);
             } else if (action == MenuAction::DifficultyHard) {
-                startLoading(Difficulty::Hard);
+                startLoading(SceneType::ParkingLot, Difficulty::Hard);
             } else if (action == MenuAction::Back) {
                 state_ = AppState::MainMenu;
                 mainUI_.showMainMenu();
@@ -441,8 +445,14 @@ bool MainScene::initialize() {
 }
 
 void MainScene::resetGame() {
-    parkingLotScene_.reset(selectedDifficulty_);
-    camera_.reset(parkingLotScene_.spawnPosition());
+    activeScene_ = loadingDestination_;
+    if (activeScene_ == SceneType::SecurityCheck) {
+        securityCheckScene_.reset(selectedDifficulty_);
+        camera_.reset(securityCheckScene_.spawnPosition());
+    } else {
+        parkingLotScene_.reset(selectedDifficulty_);
+        camera_.reset(parkingLotScene_.spawnPosition());
+    }
     soundManager_.stopAll();
     soundManager_.setListener(camera_.position(), camera_.forward(),
                               {0.0f, 1.0f, 0.0f});
@@ -458,6 +468,7 @@ void MainScene::resetGame() {
     bullets_.clear();
     impactEffects_.clear();
     parkingHintTimer_ = 0.0f;
+    securityAlarmWasTriggered_ = false;
     playerMaxHealth_ = kCharacterMaxHp;
     playerHealth_ = playerMaxHealth_;
     playerDamageFlashTimer_ = 0.0f;
@@ -547,11 +558,17 @@ void MainScene::updateGameplay(float dt) {
         fpsFrameCount_ = 0;
     }
 
+    if (activeScene_ == SceneType::SecurityCheck) {
+        updateSecurityGameplay(dt);
+        return;
+    }
+
     const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
     const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
     const bool crouchPressed = crouchDown && !previousCrouchDown_;
     const bool pronePressed = proneDown && !previousProneDown_;
     if (parkingLotScene_.levelComplete()) {
+        startLoading(SceneType::SecurityCheck, selectedDifficulty_);
         previousCrouchDown_ = crouchDown;
         previousProneDown_ = proneDown;
         return;
@@ -652,6 +669,90 @@ void MainScene::updateGameplay(float dt) {
     updateBullets(dt);
 }
 
+void MainScene::updateSecurityGameplay(float dt) {
+    const bool alarmNow = securityCheckScene_.alarmTriggered();
+    if (alarmNow && !securityAlarmWasTriggered_) {
+        soundManager_.play2D("alarm.wav", 1.0f);
+    }
+    securityAlarmWasTriggered_ = alarmNow;
+
+    const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+    const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
+    const bool crouchPressed = crouchDown && !previousCrouchDown_;
+    const bool pronePressed = proneDown && !previousProneDown_;
+    const bool restartDown = glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+
+    if (playerDown_) {
+        if (restartDown && !previousRestartDown_) {
+            resetGame();
+        }
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        return;
+    }
+
+    if (securityCheckScene_.alarmTriggered() && restartDown &&
+        !previousRestartDown_) {
+        resetGame();
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        return;
+    }
+
+    if (securityCheckScene_.levelComplete()) {
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        return;
+    }
+
+    if (crouchPressed || pronePressed) {
+        if (camera_.posture() == Camera::Posture::Standing) {
+            camera_.setPosture(crouchPressed ? Camera::Posture::Crouching
+                                              : Camera::Posture::Prone);
+        } else {
+            camera_.setPosture(Camera::Posture::Standing);
+        }
+    }
+
+    camera_.updateLook(window_);
+    camera_.update(
+        window_, dt, previousJumpDown_,
+        [this](const Vec3& position) {
+            return cameraPositionBlocked(position, camera_.position());
+        });
+    camera_.updateAim(window_, dt);
+    soundManager_.setListener(camera_.position(), camera_.forward(),
+                              {0.0f, 1.0f, 0.0f});
+    soundManager_.update();
+
+    const bool interactDown =
+        glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
+    if (interactDown && !previousInteractDown_) {
+        if (securityCheckScene_.interactWithSwitch(camera_.position())) {
+            soundManager_.play2D("btnclick.wav", 1.0f);
+        }
+    }
+    previousInteractDown_ = interactDown;
+    previousRestartDown_ = restartDown;
+    previousCrouchDown_ = crouchDown;
+    previousProneDown_ = proneDown;
+
+    const int playerDamage =
+        securityCheckScene_.update(dt, camera_.position());
+    if (playerDamage > 0) {
+        playerHealth_ = std::max(0, playerHealth_ - playerDamage);
+        playerDamageFlashTimer_ = 0.32f;
+        if (playerHealth_ <= 0) {
+            playerDown_ = true;
+        }
+    }
+    playerDamageFlashTimer_ =
+        std::max(0.0f, playerDamageFlashTimer_ - dt);
+    updateImpactEffects(dt);
+}
 void MainScene::updateBullets(float dt) {
     for (const std::unique_ptr<BulletBase>& bullet : bullets_) {
         const Vec3 previousPosition = bullet->position();
@@ -734,6 +835,9 @@ void MainScene::updateImpactEffects(float dt) {
 
 bool MainScene::cameraPositionBlocked(const Vec3& position,
                                        const Vec3& currentPosition) const {
+    if (activeScene_ == SceneType::SecurityCheck) {
+        return securityCheckScene_.cameraPositionBlocked(position, currentPosition);
+    }
     return parkingLotScene_.cameraPositionBlocked(position, currentPosition);
 }
 
@@ -759,7 +863,11 @@ void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     }
 
     if (state_ == AppState::Playing) {
-        renderParkingHud();
+        if (activeScene_ == SceneType::SecurityCheck) {
+            renderSecurityHud();
+        } else {
+            renderParkingHud();
+        }
         renderWeaponInventory();
         renderFpsOverlay();
     }
@@ -798,10 +906,15 @@ void MainScene::renderEquippedWeapon(const Camera& camera) const {
 }
 
 void MainScene::renderScene() const {
-    parkingLotScene_.render();
+    if (activeScene_ == SceneType::SecurityCheck) {
+        securityCheckScene_.render();
+    } else {
+        parkingLotScene_.render();
+    }
 }
 
-void MainScene::startLoading(Difficulty difficulty) {
+void MainScene::startLoading(SceneType destination, Difficulty difficulty) {
+    loadingDestination_ = destination;
     selectedDifficulty_ = difficulty;
     loadingElapsed_ = 0.0f;
     loadingUI_.setProgress(0.0f);
@@ -1304,6 +1417,140 @@ void MainScene::renderParkingHud() const {
         ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
 }
 
+void MainScene::renderSecurityHud() const {
+    if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
+        return;
+    }
+
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+    const float margin = 22.0f * uiScale;
+    const float panelWidth = std::min(350.0f * uiScale,
+                                      static_cast<float>(framebufferWidth_) -
+                                          margin * 2.0f);
+    const float panelHeight = 164.0f * uiScale;
+    const Rect panel{margin, margin, panelWidth, panelHeight};
+    const Color panelColor{0.03f, 0.07f, 0.11f};
+    const Color panelAccent{0.16f, 0.64f, 0.72f};
+    const Color textColor{0.95f, 0.98f, 0.92f};
+    const Color mutedColor{0.65f, 0.78f, 0.78f};
+    const Color dangerColor{1.0f, 0.42f, 0.28f};
+    const Color successColor{0.42f, 1.0f, 0.58f};
+    const SecurityText& labels = securityText(language_);
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (securityCheckScene_.alarmTriggered()) {
+        const float flashAlpha =
+            0.10f + 0.18f * securityCheckScene_.alarmFlashAmount();
+        ThreeDUtils::drawRect2D(
+            {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+             static_cast<float>(framebufferHeight_)},
+            dangerColor, flashAlpha);
+    }
+
+    if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashAlpha =
+            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+        ThreeDUtils::drawRect2D(
+            {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+             static_cast<float>(framebufferHeight_)},
+            dangerColor, flashAlpha);
+    }
+
+    ThreeDUtils::drawRect2D(
+        {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,
+         panel.height},
+        kInkColor, 0.45f);
+    ThreeDUtils::drawRect2D(panel, panelColor, 0.88f);
+    ThreeDUtils::drawRect2D(
+        {panel.x, panel.y, panel.width, 7.0f * uiScale}, panelAccent, 0.95f);
+    ThreeDUtils::drawFrame2D(panel, kInkColor, std::max(2.0f, 3.0f * uiScale));
+
+    const float textScale = std::max(1.0f, 2.0f * uiScale);
+    const float titleScale = std::max(1.0f, 2.5f * uiScale);
+    ThreeDUtils::drawText(labels.title, panel.x + 14.0f * uiScale,
+                          panel.y + 17.0f * uiScale, titleScale, textColor);
+
+    const std::string powerStatus =
+        std::string(labels.powerLabel) +
+        (securityCheckScene_.powerOn() ? labels.powerOn : labels.powerOff);
+    const Color powerColor =
+        securityCheckScene_.powerOn() ? dangerColor : successColor;
+    ThreeDUtils::drawText(powerStatus, panel.x + 14.0f * uiScale,
+                          panel.y + 47.0f * uiScale, textScale, powerColor);
+
+    const std::string healthStatus =
+        std::string(labels.healthLabel) + std::to_string(playerHealth_) +
+        " / " + std::to_string(playerMaxHealth_);
+    const float healthRatio =
+        static_cast<float>(playerHealth_) /
+        static_cast<float>(std::max(1, playerMaxHealth_));
+    const Color healthColor =
+        healthRatio > 0.55f
+            ? successColor
+            : (healthRatio > 0.25f ? Color{1.0f, 0.78f, 0.20f}
+                                   : dangerColor);
+    ThreeDUtils::drawText(healthStatus, panel.x + 14.0f * uiScale,
+                          panel.y + 73.0f * uiScale, textScale,
+                          healthColor);
+
+    const Rect healthBar{panel.x + 14.0f * uiScale,
+                         panel.y + 94.0f * uiScale,
+                         panel.width - 28.0f * uiScale,
+                         13.0f * uiScale};
+    ThreeDUtils::drawRect2D(
+        {healthBar.x + 2.0f * uiScale, healthBar.y + 3.0f * uiScale,
+         healthBar.width, healthBar.height},
+        kInkColor, 0.42f);
+    ThreeDUtils::drawRect2D(healthBar, kHealthBarBack, 0.95f);
+    if (healthRatio > 0.0f) {
+        ThreeDUtils::drawRect2D(
+            {healthBar.x, healthBar.y, healthBar.width * healthRatio,
+             healthBar.height},
+            healthColor, 0.98f);
+        ThreeDUtils::drawRect2D(
+            {healthBar.x, healthBar.y, healthBar.width * healthRatio,
+             std::max(1.0f, 2.0f * uiScale)},
+            ThreeDUtils::shade(healthColor, 1.22f), 0.95f);
+    }
+    ThreeDUtils::drawFrame2D(healthBar, kInkColor,
+                             std::max(1.0f, 2.0f * uiScale));
+
+    std::string prompt;
+    Color promptColor = mutedColor;
+    if (playerDown_) {
+        prompt = labels.playerDownPrompt;
+        promptColor = dangerColor;
+    } else if (securityCheckScene_.alarmTriggered()) {
+        prompt = labels.alarmPrompt;
+        promptColor = dangerColor;
+    } else if (securityCheckScene_.levelComplete()) {
+        prompt = labels.completePrompt;
+        promptColor = successColor;
+    } else if (securityCheckScene_.nearSwitch(camera_.position())) {
+        prompt = labels.switchPrompt;
+        promptColor = successColor;
+    } else {
+        prompt = labels.objectivePrompt;
+    }
+    ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
+                          panel.y + 117.0f * uiScale, textScale, promptColor);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
 void MainScene::renderWeaponInventory() const {
     if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
         return;

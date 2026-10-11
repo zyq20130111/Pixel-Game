@@ -30,6 +30,7 @@ add_executable(
     src/SecurityGuardModel.cpp
     src/SecurityGuardBaton.cpp
     src/ParkingLotScene.cpp
+    src/SecurityCheckScene.cpp
     src/PistolBullet.cpp
     src/SniperBullet.cpp
     src/BulletBase.cpp

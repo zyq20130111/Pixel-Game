@@ -11,6 +11,7 @@
 #include "Pistol.h"
 #include "platform.h"
 #include "SceneBase.h"
+#include "SecurityCheckScene.h"
 #include "SniperRifle.h"
 #include "SoundManager.h"
 #include "types.h"
@@ -28,6 +29,11 @@ public:
     int run() override;
 
 private:
+    enum class SceneType {
+        ParkingLot,
+        SecurityCheck,
+    };
+
     enum class WeaponType {
         Knife,
         Pistol,
@@ -36,7 +42,8 @@ private:
 
     bool initialize();
     void resetGame();
-    void startLoading(Difficulty difficulty);
+    void startLoading(SceneType destination, Difficulty difficulty);
+    void updateSecurityGameplay(float dt);
     void updateLoading(float dt);
     void updateExitPrompt();
     void updateGameplay(float dt);
@@ -51,6 +58,7 @@ private:
     void renderCrosshair() const;
     void renderSniperScopeOverlay(const Camera& camera) const;
     void renderParkingHud() const;
+    void renderSecurityHud() const;
     void renderWeaponInventory() const;
     void renderFpsOverlay() const;
     void updateWeaponSelection(float dt);
@@ -81,6 +89,9 @@ private:
     Camera camera_;
     SoundManager soundManager_;
     ParkingLotScene parkingLotScene_;
+    SecurityCheckScene securityCheckScene_;
+    SceneType activeScene_;
+    SceneType loadingDestination_;
     Knife knife_;
     Pistol pistol_;
     SniperRifle sniperRifle_;
@@ -105,6 +116,7 @@ private:
     bool previousInteractDown_;
     bool previousRestartDown_;
     bool previousFpsToggleDown_;
+    bool securityAlarmWasTriggered_;
     float parkingHintTimer_;
     int playerHealth_;
     int playerMaxHealth_;

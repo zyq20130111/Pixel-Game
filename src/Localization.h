@@ -67,7 +67,24 @@ struct ParkingText {
     const char* accessCardWorldLabel;
 };
 
+struct SecurityText {
+    const char* title;
+    const char* powerLabel;
+    const char* powerOn;
+    const char* powerOff;
+    const char* alarmPrompt;
+    const char* completePrompt;
+    const char* switchPrompt;
+    const char* objectivePrompt;
+    const char* gateLabel;
+    const char* switchLabel;
+    const char* exitLabel;
+    const char* healthLabel;
+    const char* playerDownPrompt;
+};
+
 const UiText& uiText(Language language);
 const ParkingText& parkingText(Language language);
+const SecurityText& securityText(Language language);
 
 }  // namespace pixel_world
