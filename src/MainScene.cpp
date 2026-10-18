@@ -383,6 +383,7 @@ int MainScene::run() {
                 state_ = AppState::DifficultySelect;
             } else if (action == MenuAction::ContinueGame) {
                 if (checkpointLoaded_) {
+                    restoreCheckpoint();
                     startLoading(checkpointScene_, selectedDifficulty_);
                 } else {
                     state_ = AppState::DifficultySelect;
