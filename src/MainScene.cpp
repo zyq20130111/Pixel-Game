@@ -271,6 +271,9 @@ MainScene::MainScene()
       loadingElapsed_(0.0f),
       bullets_(),
       impactEffects_(),
+      inventoryWeapons_(),
+      checkpointWeapons_(),
+      checkpointScene_(SceneType::ParkingLot),
       equippedWeapon_(WeaponType::Knife),
       weaponSwitchTarget_(WeaponType::Knife),
       weaponSwitchElapsed_(0.0f),
@@ -457,7 +460,7 @@ bool MainScene::initialize() {
 }
 
 void MainScene::resetGame() {
-    activeScene_ = loadingDestination_;
+    activeScene_ = checkpointScene_;
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.reset(selectedDifficulty_);
         camera_.reset(securityCheckScene_.spawnPosition());
@@ -478,9 +481,7 @@ void MainScene::resetGame() {
     knife_.reset();
     pistol_.reset();
     sniperRifle_.reset();
-    inventoryWeapons_.clear();
-    inventoryWeapons_.push_back(WeaponType::Knife);
-    equippedWeapon_ = WeaponType::Knife;
+    restoreCheckpoint();
     weaponSwitchTarget_ = equippedWeapon_;
     weaponSwitchElapsed_ = 0.0f;
     weaponSwitching_ = false;
@@ -516,6 +517,87 @@ void MainScene::resetGame() {
         glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
     previousPromptMouseDown_ =
         glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+int MainScene::weaponId(WeaponType weapon) {
+    switch (weapon) {
+        case WeaponType::Knife:
+            return 1;
+        case WeaponType::Pistol:
+            return 2;
+        case WeaponType::Sniper:
+            return 3;
+    }
+    return 0;
+}
+
+MainScene::WeaponType MainScene::weaponFromId(int id) {
+    switch (id) {
+        case 1:
+            return WeaponType::Knife;
+        case 2:
+            return WeaponType::Pistol;
+        case 3:
+            return WeaponType::Sniper;
+    }
+    return WeaponType::Knife;
+}
+
+std::string MainScene::weaponDescription(WeaponType weapon,
+                                         Language language) {
+    if (language == Language::Chinese) {
+        switch (weapon) {
+            case WeaponType::Knife:
+                return "\xE5\x8C\x95\xE9\xA6\x96";
+            case WeaponType::Pistol:
+                return "\xE6\x89\x8B\xE6\x9E\xAA";
+            case WeaponType::Sniper:
+                return "\xE7\x8B\x99\xE5\x87\xBB\xE6\x9E\xAA";
+        }
+    }
+
+    switch (weapon) {
+        case WeaponType::Knife:
+            return "Knife";
+        case WeaponType::Pistol:
+            return "Pistol";
+        case WeaponType::Sniper:
+            return "Sniper Rifle";
+    }
+    return "Knife";
+}
+
+void MainScene::saveCheckpoint(SceneType scene) {
+    checkpointScene_ = scene;
+    checkpointWeapons_.clear();
+
+    if (scene == SceneType::ParkingLot) {
+        checkpointWeapons_.push_back(
+            {weaponId(WeaponType::Knife),
+             weaponDescription(WeaponType::Knife, language_)});
+        return;
+    }
+
+    for (WeaponType weapon : inventoryWeapons_) {
+        checkpointWeapons_.push_back(
+            {weaponId(weapon), weaponDescription(weapon, language_)});
+    }
+    if (checkpointWeapons_.empty()) {
+        checkpointWeapons_.push_back(
+            {weaponId(WeaponType::Knife),
+             weaponDescription(WeaponType::Knife, language_)});
+    }
+}
+
+void MainScene::restoreCheckpoint() {
+    inventoryWeapons_.clear();
+    for (const SavedWeapon& saved : checkpointWeapons_) {
+        inventoryWeapons_.push_back(weaponFromId(saved.id));
+    }
+    if (inventoryWeapons_.empty()) {
+        inventoryWeapons_.push_back(WeaponType::Knife);
+    }
+    equippedWeapon_ = inventoryWeapons_.front();
 }
 
 void MainScene::updateExitPrompt() {
@@ -1241,6 +1323,7 @@ void MainScene::renderScene() const {
 }
 
 void MainScene::startLoading(SceneType destination, Difficulty difficulty) {
+    saveCheckpoint(destination);
     loadingDestination_ = destination;
     selectedDifficulty_ = difficulty;
     loadingElapsed_ = 0.0f;

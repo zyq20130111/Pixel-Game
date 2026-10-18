@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <vector>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace pixel_world {
@@ -44,8 +45,15 @@ private:
         Sniper,
     };
 
+    struct SavedWeapon {
+        int id;
+        std::string description;
+    };
+
     bool initialize();
     void resetGame();
+    void saveCheckpoint(SceneType scene);
+    void restoreCheckpoint();
     void startLoading(SceneType destination, Difficulty difficulty);
     void updateSecurityGameplay(float dt);
     void updateWarehouseGameplay(float dt);
@@ -71,6 +79,10 @@ private:
     void renderFpsOverlay() const;
     void updateWeaponSelection(float dt);
     void requestWeapon(WeaponType weapon);
+    static int weaponId(WeaponType weapon);
+    static WeaponType weaponFromId(int id);
+    static std::string weaponDescription(WeaponType weapon,
+                                         Language language);
     void renderWeapon(const Camera& camera, WeaponType weapon,
                       const WeaponRenderMotion& motion) const;
     void renderEquippedWeapon(const Camera& camera) const;
@@ -124,6 +136,8 @@ private:
     std::vector<std::unique_ptr<BulletBase>> bullets_;
     std::vector<ImpactEffect> impactEffects_;
     std::vector<WeaponType> inventoryWeapons_;
+    std::vector<SavedWeapon> checkpointWeapons_;
+    SceneType checkpointScene_;
     WeaponType equippedWeapon_;
     WeaponType weaponSwitchTarget_;
     float weaponSwitchElapsed_;
