@@ -12,6 +12,7 @@
 #include "platform.h"
 #include "SceneBase.h"
 #include "SecurityCheckScene.h"
+#include "WarehouseScene.h"
 #include "SniperRifle.h"
 #include "SoundManager.h"
 #include "types.h"
@@ -33,6 +34,7 @@ private:
     enum class SceneType {
         ParkingLot,
         SecurityCheck,
+        Warehouse,
     };
 
     enum class WeaponType {
@@ -45,6 +47,7 @@ private:
     void resetGame();
     void startLoading(SceneType destination, Difficulty difficulty);
     void updateSecurityGameplay(float dt);
+    void updateWarehouseGameplay(float dt);
     void updateLoading(float dt);
     void updateExitPrompt();
     void updateGameplay(float dt);
@@ -60,6 +63,7 @@ private:
     void renderSniperScopeOverlay(const Camera& camera) const;
     void renderParkingHud() const;
     void renderSecurityHud() const;
+    void renderWarehouseHud() const;
     void renderWeaponInventory() const;
     void renderFpsOverlay() const;
     void updateWeaponSelection(float dt);
@@ -89,7 +93,8 @@ private:
     void renderCharacterImpactEffect(const ImpactEffect& effect) const;
 
     static void updateWindowTitle(GLFWwindow* window, AppState state,
-                                  Language language);
+                                  Language language,
+                                  SceneType activeScene);
 
     GLFWwindow* window_;
     bool glfwInitialized_;
@@ -102,6 +107,7 @@ private:
     SoundManager soundManager_;
     ParkingLotScene parkingLotScene_;
     SecurityCheckScene securityCheckScene_;
+    WarehouseScene warehouseScene_;
     SceneType activeScene_;
     SceneType loadingDestination_;
     Knife knife_;

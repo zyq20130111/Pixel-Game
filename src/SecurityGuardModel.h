@@ -46,6 +46,7 @@ public:
     void setDifficulty(Difficulty difficulty);
     void setWeapon(SecurityGuardWeapon weapon);
     void setPosition(const Vec3& position);
+    void setYawDegrees(float yawDegrees);
     void setPatrolling(bool patrolling);
     void setPatrolWaypoints(const std::vector<Vec3>& waypoints);
 

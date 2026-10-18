@@ -83,8 +83,31 @@ struct SecurityText {
     const char* playerDownPrompt;
 };
 
+struct WarehouseText {
+    const char* title;
+    const char* healthLabel;
+    const char* playerDownPrompt;
+    const char* completePrompt;
+    const char* objectivePrompt;
+    const char* climbPrompt;
+    const char* descendPrompt;
+    const char* sniperCratePrompt;
+    const char* forkliftPrompt;
+    const char* forkliftDrivingPrompt;
+    const char* exitPrompt;
+    const char* doorBlockedPrompt;
+    const char* ironDoorLabel;
+    const char* platformLabel;
+    const char* forkliftLabel;
+    const char* shelfLabel;
+    const char* crateLabel;
+    const char* sniperAcquiredLabel;
+    const char* entryLabel;
+    const char* exitLabel;
+};
 const UiText& uiText(Language language);
 const ParkingText& parkingText(Language language);
 const SecurityText& securityText(Language language);
+const WarehouseText& warehouseText(Language language);
 
 }  // namespace pixel_world

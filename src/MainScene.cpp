@@ -28,6 +28,7 @@ using namespace constants;
 
 constexpr float kSniperScopeOverlayStart = 0.55f;
 constexpr float kSniperScopeOverlayFade = 0.45f;
+constexpr float kWarehouseJumpVelocity = 7.6f;
 
 struct ExitPromptLayout {
     Rect panel;
@@ -180,78 +181,6 @@ void drawInventoryKnifeIcon(const Rect& slot, float uiScale, float alpha) {
     glPopMatrix();
 }
 
-void drawInventoryPistolIcon(const Rect& slot, float uiScale, float alpha) {
-    const float centerX = slot.x + slot.width * 0.5f;
-    const float centerY = slot.y + slot.height * 0.47f;
-    glPushMatrix();
-    glTranslatef(centerX, centerY, 0.0f);
-    glScalef(uiScale, uiScale, 1.0f);
-
-    // Compact side profile: slide, barrel, trigger guard and angled grip.
-    ThreeDUtils::drawRect2D({-31.0f, -11.0f, 39.0f, 19.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({-28.0f, -8.0f, 34.0f, 13.0f},
-                            kPistolMetal, alpha);
-    ThreeDUtils::drawRect2D({-23.0f, -6.0f, 25.0f, 3.0f},
-                            kPistolHighlight, alpha);
-    ThreeDUtils::drawRect2D({5.0f, -6.0f, 26.0f, 9.0f},
-                            kPistolMetalDark, alpha);
-    ThreeDUtils::drawRect2D({8.0f, -4.0f, 22.0f, 4.0f},
-                            kPistolHighlight, alpha);
-
-    drawInventoryPolygon(
-        {{-4.0f, 7.0f}, {15.0f, 7.0f}, {10.0f, 34.0f},
-         {-7.0f, 30.0f}},
-        kInkColor, alpha);
-    drawInventoryPolygon(
-        {{-1.0f, 9.0f}, {12.0f, 9.0f}, {8.0f, 30.0f},
-         {-4.0f, 28.0f}},
-        kPistolGrip, alpha);
-    ThreeDUtils::drawRect2D({0.0f, 12.0f, 7.0f, 14.0f},
-                            kPistolGripDark, alpha);
-
-    drawInventoryPolygon(
-        {{-4.0f, 6.0f}, {8.0f, 6.0f}, {5.0f, 20.0f},
-         {-1.0f, 20.0f}},
-        kInkColor, alpha);
-    drawInventoryPolygon(
-        {{-1.0f, 8.0f}, {5.0f, 8.0f}, {3.0f, 17.0f},
-         {1.0f, 17.0f}},
-        kPistolMetalDark, alpha);
-    glPopMatrix();
-}
-
-void drawInventorySniperIcon(const Rect& slot, float uiScale, float alpha) {
-    const float centerX = slot.x + slot.width * 0.5f;
-    const float centerY = slot.y + slot.height * 0.47f;
-    glPushMatrix();
-    glTranslatef(centerX, centerY, 0.0f);
-    glScalef(uiScale, uiScale, 1.0f);
-
-    // Side profile: stock, receiver, long barrel and scope.
-    ThreeDUtils::drawRect2D({-40.0f, -8.0f, 22.0f, 17.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({-36.0f, -5.0f, 30.0f, 11.0f},
-                            kSniperStock, alpha);
-    ThreeDUtils::drawRect2D({-16.0f, -12.0f, 40.0f, 20.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({-13.0f, -9.0f, 35.0f, 14.0f},
-                            kSniperMetal, alpha);
-    ThreeDUtils::drawRect2D({20.0f, -6.0f, 30.0f, 8.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({22.0f, -4.0f, 30.0f, 4.0f},
-                            kSniperBarrel, alpha);
-    ThreeDUtils::drawRect2D({-6.0f, -18.0f, 21.0f, 6.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({-3.0f, -16.0f, 15.0f, 3.0f},
-                            kSniperScope, alpha);
-    ThreeDUtils::drawRect2D({-8.0f, 8.0f, 6.0f, 17.0f},
-                            kInkColor, alpha);
-    ThreeDUtils::drawRect2D({-5.0f, 10.0f, 4.0f, 12.0f},
-                            kSniperMetalDark, alpha);
-    glPopMatrix();
-}
-
 }  // namespace
 
 MainScene::MainScene()
@@ -265,6 +194,7 @@ MainScene::MainScene()
       soundManager_(),
       parkingLotScene_(language_),
       securityCheckScene_(language_),
+      warehouseScene_(language_),
       activeScene_(SceneType::ParkingLot),
       loadingDestination_(SceneType::ParkingLot),
       knife_(),
@@ -386,7 +316,7 @@ int MainScene::run() {
             }
         }
 
-        updateWindowTitle(window_, state_, language_);
+        updateWindowTitle(window_, state_, language_, activeScene_);
         glfwSwapBuffers(window_);
     }
 
@@ -440,7 +370,7 @@ bool MainScene::initialize() {
     glfwGetFramebufferSize(window_, &framebufferWidth_, &framebufferHeight_);
     ThreeDUtils::framebufferSizeCallback(
         window_, framebufferWidth_, framebufferHeight_);
-    updateWindowTitle(window_, state_, language_);
+    updateWindowTitle(window_, state_, language_, activeScene_);
     return true;
 }
 
@@ -449,6 +379,11 @@ void MainScene::resetGame() {
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.reset(selectedDifficulty_);
         camera_.reset(securityCheckScene_.spawnPosition());
+    } else if (activeScene_ == SceneType::Warehouse) {
+        warehouseScene_.reset(selectedDifficulty_);
+        camera_.reset(warehouseScene_.spawnPosition());
+        camera_.setJumpVelocity(kWarehouseJumpVelocity);
+        camera_.setYawDegrees(180.0f);
     } else {
         parkingLotScene_.reset(selectedDifficulty_);
         camera_.reset(parkingLotScene_.spawnPosition());
@@ -560,6 +495,11 @@ void MainScene::updateGameplay(float dt) {
 
     if (activeScene_ == SceneType::SecurityCheck) {
         updateSecurityGameplay(dt);
+        return;
+    }
+
+    if (activeScene_ == SceneType::Warehouse) {
+        updateWarehouseGameplay(dt);
         return;
     }
 
@@ -708,6 +648,7 @@ void MainScene::updateSecurityGameplay(float dt) {
     }
 
     if (securityCheckScene_.levelComplete()) {
+        startLoading(SceneType::Warehouse, selectedDifficulty_);
         previousRestartDown_ = restartDown;
         previousCrouchDown_ = crouchDown;
         previousProneDown_ = proneDown;
@@ -795,12 +736,175 @@ void MainScene::updateSecurityGameplay(float dt) {
     updateBullets(dt);
 }
 
+void MainScene::updateWarehouseGameplay(float dt) {
+    const bool crouchDown = glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
+    const bool proneDown = glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
+    const bool crouchPressed = crouchDown && !previousCrouchDown_;
+    const bool pronePressed = proneDown && !previousProneDown_;
+    const bool restartDown = glfwGetKey(window_, GLFW_KEY_R) == GLFW_PRESS;
+    const bool interactDown =
+        glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS;
+    const bool jumpDown =
+        glfwGetKey(window_, GLFW_KEY_SPACE) == GLFW_PRESS;
+
+    if (warehouseScene_.drivingForklift()) {
+        const bool accelerate =
+            glfwGetKey(window_, GLFW_KEY_W) == GLFW_PRESS;
+        const bool reverse =
+            glfwGetKey(window_, GLFW_KEY_S) == GLFW_PRESS;
+        const bool steerLeft =
+            glfwGetKey(window_, GLFW_KEY_A) == GLFW_PRESS;
+        const bool steerRight =
+            glfwGetKey(window_, GLFW_KEY_D) == GLFW_PRESS;
+        warehouseScene_.updateForklift(dt, accelerate, reverse, steerLeft,
+                                       steerRight);
+        camera_.setPosition(warehouseScene_.forkliftSeatPosition());
+        camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+        camera_.setPosture(Camera::Posture::Standing);
+        camera_.updateAim(window_, dt);
+        soundManager_.setListener(camera_.position(), camera_.forward(),
+                                  {0.0f, 1.0f, 0.0f});
+        soundManager_.update();
+
+        if (interactDown && !previousInteractDown_) {
+            warehouseScene_.exitForklift();
+            camera_.setPosition(warehouseScene_.forkliftExitPosition());
+            camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+            camera_.resetLookTracking(window_);
+            soundManager_.play2D("btnclick.wav", 1.0f);
+        }
+        previousInteractDown_ = interactDown;
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        previousJumpDown_ = jumpDown;
+        updateImpactEffects(dt);
+        updateBullets(dt);
+        return;
+    }
+
+    if (playerDown_) {
+        if (restartDown && !previousRestartDown_) {
+            resetGame();
+        }
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        previousJumpDown_ = jumpDown;
+        return;
+    }
+
+    if (warehouseScene_.levelComplete()) {
+        previousRestartDown_ = restartDown;
+        previousCrouchDown_ = crouchDown;
+        previousProneDown_ = proneDown;
+        previousJumpDown_ = jumpDown;
+        return;
+    }
+
+    if (crouchPressed || pronePressed) {
+        if (camera_.posture() == Camera::Posture::Standing) {
+            camera_.setPosture(crouchPressed ? Camera::Posture::Crouching
+                                              : Camera::Posture::Prone);
+        } else {
+            camera_.setPosture(Camera::Posture::Standing);
+        }
+    }
+
+    camera_.updateLook(window_);
+    camera_.update(
+        window_, dt, previousJumpDown_,
+        [this](const Vec3& position) {
+            return cameraPositionBlocked(position, camera_.position());
+        },
+        [this](const Vec3& position) {
+            return warehouseScene_.groundHeightAt(position);
+        });
+
+    camera_.updateAim(window_, dt);
+    soundManager_.setListener(camera_.position(), camera_.forward(),
+                              {0.0f, 1.0f, 0.0f});
+    soundManager_.update();
+
+    updateWeaponSelection(dt);
+    bool playerAttacked = false;
+    if (equippedWeapon_ == WeaponType::Knife) {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            knife_.update(window_, camera_, bullets_, soundManager_,
+                          previousFireDown_, dt);
+    } else if (equippedWeapon_ == WeaponType::Pistol) {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            pistol_.update(window_, camera_, bullets_, soundManager_,
+                           previousFireDown_, dt);
+    } else {
+        if (weaponSwitching_) {
+            previousFireDown_ = true;
+        }
+        playerAttacked =
+            sniperRifle_.update(window_, camera_, bullets_, soundManager_,
+                                previousFireDown_, dt);
+    }
+    if (playerAttacked && equippedWeapon_ == WeaponType::Knife) {
+        performKnifeAttack();
+    }
+
+    if (interactDown && !previousInteractDown_) {
+        if (warehouseScene_.nearSniperCrate(camera_.position()) &&
+            !warehouseScene_.sniperRifleTaken()) {
+            if (warehouseScene_.interactWithSniperCrate(
+                    camera_.position())) {
+                requestWeapon(WeaponType::Sniper);
+                soundManager_.play2D("btnclick.wav", 1.0f);
+            }
+        } else if (warehouseScene_.nearForklift(camera_.position()) &&
+                   warehouseScene_.enterForklift(camera_.position())) {
+            camera_.resetLookTracking(window_);
+            camera_.setPosition(warehouseScene_.forkliftSeatPosition());
+            camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+            soundManager_.play2D("btnclick.wav", 1.0f);
+        }
+    }
+    previousInteractDown_ = interactDown;
+    previousRestartDown_ = restartDown;
+    previousCrouchDown_ = crouchDown;
+    previousProneDown_ = proneDown;
+
+    const int playerDamage =
+        warehouseScene_.update(dt, camera_.position());
+    if (playerDamage > 0) {
+        playerHealth_ = std::max(0, playerHealth_ - playerDamage);
+        playerDamageFlashTimer_ = 0.32f;
+        if (playerHealth_ <= 0) {
+            playerDown_ = true;
+        }
+    }
+    playerDamageFlashTimer_ =
+        std::max(0.0f, playerDamageFlashTimer_ - dt);
+
+    if (warehouseScene_.sniperFired()) {
+        soundManager_.play3D("sniper.wav",
+                             warehouseScene_.sniperFiredPosition(), 1.0f);
+    }
+
+    updateImpactEffects(dt);
+    updateBullets(dt);
+}
+
 bool MainScene::sceneSegmentHitsGuard(const Vec3& start, const Vec3& end,
                                       float& hitT,
                                       std::size_t& guardIndex) const {
     if (activeScene_ == SceneType::SecurityCheck) {
         return securityCheckScene_.segmentHitsGuard(start, end, hitT,
                                                     guardIndex);
+    }
+    if (activeScene_ == SceneType::Warehouse) {
+        return warehouseScene_.segmentHitsGuard(start, end, hitT, guardIndex);
     }
     return parkingLotScene_.segmentHitsGuard(start, end, hitT, guardIndex);
 }
@@ -810,6 +914,9 @@ bool MainScene::sceneSegmentHitsGeometry(const Vec3& start, const Vec3& end,
     if (activeScene_ == SceneType::SecurityCheck) {
         return securityCheckScene_.segmentHitsGeometry(start, end, hitT);
     }
+    if (activeScene_ == SceneType::Warehouse) {
+        return warehouseScene_.segmentHitsGeometry(start, end, hitT);
+    }
     return parkingLotScene_.segmentHitsGeometry(start, end, hitT);
 }
 
@@ -817,6 +924,8 @@ void MainScene::sceneApplyGuardDamage(std::size_t guardIndex,
                                       const Vec3& hitPosition) {
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.applyGuardDamage(guardIndex, hitPosition);
+    } else if (activeScene_ == SceneType::Warehouse) {
+        warehouseScene_.applyGuardDamage(guardIndex, hitPosition);
     } else {
         parkingLotScene_.applyGuardDamage(guardIndex, hitPosition);
     }
@@ -826,6 +935,8 @@ void MainScene::sceneApplyGuardSniperDamage(std::size_t guardIndex,
                                             const Vec3& hitPosition) {
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.applyGuardSniperDamage(guardIndex, hitPosition);
+    } else if (activeScene_ == SceneType::Warehouse) {
+        warehouseScene_.applyGuardSniperDamage(guardIndex, hitPosition);
     } else {
         parkingLotScene_.applyGuardSniperDamage(guardIndex, hitPosition);
     }
@@ -835,6 +946,8 @@ void MainScene::sceneApplyGuardKnifeDamage(std::size_t guardIndex,
                                            const Vec3& hitPosition) {
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
+    } else if (activeScene_ == SceneType::Warehouse) {
+        warehouseScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
     } else {
         parkingLotScene_.applyGuardKnifeDamage(guardIndex, hitPosition);
     }
@@ -924,6 +1037,9 @@ bool MainScene::cameraPositionBlocked(const Vec3& position,
     if (activeScene_ == SceneType::SecurityCheck) {
         return securityCheckScene_.cameraPositionBlocked(position, currentPosition);
     }
+    if (activeScene_ == SceneType::Warehouse) {
+        return warehouseScene_.cameraPositionBlocked(position, currentPosition);
+    }
     return parkingLotScene_.cameraPositionBlocked(position, currentPosition);
 }
 
@@ -951,6 +1067,8 @@ void MainScene::renderFrame(const Camera& camera, bool showWeapon) {
     if (state_ == AppState::Playing) {
         if (activeScene_ == SceneType::SecurityCheck) {
             renderSecurityHud();
+        } else if (activeScene_ == SceneType::Warehouse) {
+            renderWarehouseHud();
         } else {
             renderParkingHud();
         }
@@ -994,6 +1112,8 @@ void MainScene::renderEquippedWeapon(const Camera& camera) const {
 void MainScene::renderScene() const {
     if (activeScene_ == SceneType::SecurityCheck) {
         securityCheckScene_.render();
+    } else if (activeScene_ == SceneType::Warehouse) {
+        warehouseScene_.render();
     } else {
         parkingLotScene_.render();
     }
@@ -1042,9 +1162,9 @@ void MainScene::updateWeaponSelection(float dt) {
 
     if (weapon1Down && !previousWeapon1Down_) {
         requestWeapon(WeaponType::Knife);
-    } else if (weapon2Down && !previousWeapon2Down_) {
-        requestWeapon(WeaponType::Pistol);
-    } else if (weapon3Down && !previousWeapon3Down_) {
+    } else if (weapon3Down && !previousWeapon3Down_ &&
+               activeScene_ == SceneType::Warehouse &&
+               warehouseScene_.sniperRifleTaken()) {
         requestWeapon(WeaponType::Sniper);
     }
 
@@ -1637,6 +1757,145 @@ void MainScene::renderSecurityHud() const {
         framebufferWidth_, framebufferHeight_,
         ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
 }
+void MainScene::renderWarehouseHud() const {
+    if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
+        return;
+    }
+
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+    const float margin = 22.0f * uiScale;
+    const float panelWidth = std::min(390.0f * uiScale,
+                                      static_cast<float>(framebufferWidth_) -
+                                          margin * 2.0f);
+    const float panelHeight = 164.0f * uiScale;
+    const Rect panel{margin, margin, panelWidth, panelHeight};
+    const Color panelColor{0.03f, 0.07f, 0.11f};
+    const Color panelAccent{0.94f, 0.54f, 0.10f};
+    const Color textColor{0.95f, 0.98f, 0.92f};
+    const Color mutedColor{0.65f, 0.78f, 0.78f};
+    const Color dangerColor{1.0f, 0.42f, 0.28f};
+    const Color successColor{0.42f, 1.0f, 0.58f};
+    const WarehouseText& labels = warehouseText(language_);
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashAlpha =
+            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+        ThreeDUtils::drawRect2D(
+            {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+             static_cast<float>(framebufferHeight_)},
+            dangerColor, flashAlpha);
+    }
+
+    ThreeDUtils::drawRect2D(
+        {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,
+         panel.height},
+        kInkColor, 0.45f);
+    ThreeDUtils::drawRect2D(panel, panelColor, 0.88f);
+    ThreeDUtils::drawRect2D(
+        {panel.x, panel.y, panel.width, 7.0f * uiScale}, panelAccent, 0.95f);
+    ThreeDUtils::drawFrame2D(panel, kInkColor, std::max(2.0f, 3.0f * uiScale));
+
+    const float textScale = std::max(1.0f, 2.0f * uiScale);
+    const float titleScale = std::max(1.0f, 2.5f * uiScale);
+    ThreeDUtils::drawText(labels.title, panel.x + 14.0f * uiScale,
+                          panel.y + 17.0f * uiScale, titleScale, textColor);
+
+    const std::string healthStatus =
+        std::string(labels.healthLabel) + std::to_string(playerHealth_) +
+        " / " + std::to_string(playerMaxHealth_);
+    const float healthRatio =
+        static_cast<float>(playerHealth_) /
+        static_cast<float>(std::max(1, playerMaxHealth_));
+    const Color healthColor =
+        healthRatio > 0.55f
+            ? successColor
+            : (healthRatio > 0.25f ? Color{1.0f, 0.78f, 0.20f}
+                                   : dangerColor);
+    ThreeDUtils::drawText(healthStatus, panel.x + 14.0f * uiScale,
+                          panel.y + 47.0f * uiScale, textScale,
+                          healthColor);
+
+    const Rect healthBar{panel.x + 14.0f * uiScale,
+                         panel.y + 68.0f * uiScale,
+                         panel.width - 28.0f * uiScale,
+                         13.0f * uiScale};
+    ThreeDUtils::drawRect2D(
+        {healthBar.x + 2.0f * uiScale, healthBar.y + 3.0f * uiScale,
+         healthBar.width, healthBar.height},
+        kInkColor, 0.42f);
+    ThreeDUtils::drawRect2D(healthBar, kHealthBarBack, 0.95f);
+    if (healthRatio > 0.0f) {
+        ThreeDUtils::drawRect2D(
+            {healthBar.x, healthBar.y, healthBar.width * healthRatio,
+             healthBar.height},
+            healthColor, 0.98f);
+        ThreeDUtils::drawRect2D(
+            {healthBar.x, healthBar.y, healthBar.width * healthRatio,
+             std::max(1.0f, 2.0f * uiScale)},
+            ThreeDUtils::shade(healthColor, 1.22f), 0.95f);
+    }
+    ThreeDUtils::drawFrame2D(healthBar, kInkColor,
+                             std::max(1.0f, 2.0f * uiScale));
+
+    std::string prompt;
+    Color promptColor = mutedColor;
+    if (playerDown_) {
+        prompt = labels.playerDownPrompt;
+        promptColor = dangerColor;
+    } else if (warehouseScene_.levelComplete()) {
+        prompt = labels.completePrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.drivingForklift()) {
+        prompt = labels.forkliftDrivingPrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.nearExit(camera_.position())) {
+        prompt = labels.exitPrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.nearSniperCrate(camera_.position()) &&
+               !warehouseScene_.sniperRifleTaken()) {
+        prompt = labels.sniperCratePrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.nearPlatformClimb(camera_.position())) {
+        prompt = labels.climbPrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.onPlatform(camera_.position())) {
+        prompt = labels.descendPrompt;
+        promptColor = successColor;
+    } else if (warehouseScene_.nearForklift(camera_.position())) {
+        prompt = labels.forkliftPrompt;
+        promptColor = successColor;
+    } else if (!warehouseScene_.ironDoorOpen()) {
+        prompt = labels.doorBlockedPrompt;
+        promptColor = dangerColor;
+    } else {
+        prompt = labels.objectivePrompt;
+    }
+    ThreeDUtils::drawText(prompt, panel.x + 14.0f * uiScale,
+                          panel.y + 95.0f * uiScale, textScale, promptColor);
+
+    if (warehouseScene_.sniperRifleTaken()) {
+        ThreeDUtils::drawText(labels.sniperAcquiredLabel, panel.x + 14.0f * uiScale,
+                              panel.y + 120.0f * uiScale, textScale,
+                              successColor);
+    }
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
 void MainScene::renderWeaponInventory() const {
     if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
         return;
@@ -1648,15 +1907,11 @@ void MainScene::renderWeaponInventory() const {
                  static_cast<float>(framebufferHeight_) /
                      static_cast<float>(kWindowHeight));
     const float slotSize = std::max(58.0f, 78.0f * uiScale);
-    const float gap = std::max(6.0f, 10.0f * uiScale);
     const float margin = std::max(18.0f, 26.0f * uiScale);
     const float startX = margin;
     const float startY =
         static_cast<float>(framebufferHeight_) - margin - slotSize;
     const Rect knifeSlot{startX, startY, slotSize, slotSize};
-    const Rect pistolSlot{startX + slotSize + gap, startY, slotSize, slotSize};
-    const Rect sniperSlot{startX + (slotSize + gap) * 2.0f, startY, slotSize,
-                          slotSize};
 
     ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
     glDisable(GL_DEPTH_TEST);
@@ -1664,43 +1919,24 @@ void MainScene::renderWeaponInventory() const {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    const auto drawSlot = [&](const Rect& slot, bool selected) {
-        const Color fill = selected ? Color{0.10f, 0.30f, 0.34f}
-                                    : Color{0.03f, 0.07f, 0.11f};
-        const Color outline = selected ? kSunCore : kInkColor;
-        ThreeDUtils::drawRect2D(
-            {slot.x + 5.0f * uiScale, slot.y + 6.0f * uiScale,
-             slot.width, slot.height},
-            kInkColor, 0.45f);
-        ThreeDUtils::drawRect2D(slot, fill, selected ? 0.96f : 0.84f);
-        ThreeDUtils::drawRect2D(
-            {slot.x, slot.y, slot.width, 5.0f * uiScale},
-            selected ? kSunCore : kPanelBottom, 0.95f);
-        ThreeDUtils::drawFrame2D(
-            slot, outline, std::max(2.0f, (selected ? 4.0f : 2.0f) * uiScale));
-    };
+    const Color fill{0.12f, 0.36f, 0.40f};
+    ThreeDUtils::drawRect2D(
+        {knifeSlot.x + 5.0f * uiScale, knifeSlot.y + 6.0f * uiScale,
+         knifeSlot.width, knifeSlot.height},
+        kInkColor, 0.45f);
+    ThreeDUtils::drawRect2D(knifeSlot, fill, 0.98f);
+    ThreeDUtils::drawRect2D(
+        {knifeSlot.x, knifeSlot.y, knifeSlot.width, 5.0f * uiScale},
+        kSunCore, 0.95f);
+    ThreeDUtils::drawFrame2D(
+        knifeSlot, kSunCore, std::max(2.0f, 4.0f * uiScale));
 
-    drawSlot(knifeSlot, equippedWeapon_ == WeaponType::Knife);
-    drawSlot(pistolSlot, equippedWeapon_ == WeaponType::Pistol);
-    drawSlot(sniperSlot, equippedWeapon_ == WeaponType::Sniper);
-    drawInventoryKnifeIcon(
-        knifeSlot, uiScale,
-        equippedWeapon_ == WeaponType::Knife ? 1.0f : 0.76f);
-    drawInventoryPistolIcon(
-        pistolSlot, uiScale,
-        equippedWeapon_ == WeaponType::Pistol ? 1.0f : 0.76f);
-    drawInventorySniperIcon(
-        sniperSlot, uiScale,
-        equippedWeapon_ == WeaponType::Sniper ? 1.0f : 0.76f);
+    drawInventoryKnifeIcon(knifeSlot, uiScale, 1.0f);
 
     const float keyScale = std::max(1.0f, 2.0f * uiScale);
     const Color keyColor{0.95f, 0.98f, 0.92f};
     ThreeDUtils::drawText("1", knifeSlot.x + 8.0f * uiScale,
                           knifeSlot.y + 9.0f * uiScale, keyScale, keyColor);
-    ThreeDUtils::drawText("2", pistolSlot.x + 8.0f * uiScale,
-                          pistolSlot.y + 9.0f * uiScale, keyScale, keyColor);
-    ThreeDUtils::drawText("3", sniperSlot.x + 8.0f * uiScale,
-                          sniperSlot.y + 9.0f * uiScale, keyScale, keyColor);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
@@ -1921,7 +2157,8 @@ void MainScene::renderCharacterImpactEffect(
 }
 
 void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
-                                  Language language) {
+                                  Language language,
+                                  SceneType activeScene) {
     static std::string lastTitle;
     std::string title;
     const bool chinese = language == Language::Chinese;
@@ -1940,11 +2177,25 @@ void MainScene::updateWindowTitle(GLFWwindow* window, AppState state,
                             : "Pixel World 3D | Loading";
             break;
         case AppState::Playing:
-            title = chinese
-                        ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
-                        : "Pixel World 3D | Mouse look | LMB slash | RMB aim | "
-                          "E elevator | Shift run | Space jump/stand | C crouch | "
-                          "Z prone | Arrows walk | WASD move | Esc exit";
+            if (activeScene == SceneType::SecurityCheck) {
+                title = chinese
+                            ? "Pixel World 3D | \xE5\xAE\x89\xE6\xA3\x80\xE5\x8C\xBA"
+                            : "Pixel World 3D | Security Check | E toggle power | "
+                              "LMB slash | RMB aim | Shift run | Space jump/stand | "
+                              "C crouch | Z prone | WASD move | Esc exit";
+            } else if (activeScene == SceneType::Warehouse) {
+                title = chinese
+                            ? "Pixel World 3D | \xE4\xBB\x93\xE5\xBA\x93"
+                            : "Pixel World 3D | Warehouse | E interact | "
+                              "LMB fire | RMB aim | Shift run | Space jump/stand | "
+                              "C crouch | Z prone | WASD move | Esc exit";
+            } else {
+                title = chinese
+                            ? "Pixel World 3D | \xE5\x81\x9C\xE8\xBD\xA6\xE5\x9C\xBA"
+                            : "Pixel World 3D | Mouse look | LMB slash | RMB aim | "
+                              "E elevator | Shift run | Space jump/stand | C crouch | "
+                              "Z prone | Arrows walk | WASD move | Esc exit";
+            }
             break;
     }
     if (title == lastTitle) {

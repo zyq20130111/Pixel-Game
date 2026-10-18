@@ -10,6 +10,7 @@ namespace pixel_world {
 class Camera {
 public:
     using MovementCollisionTest = std::function<bool(const Vec3&)>;
+    using GroundHeightAt = std::function<float(const Vec3&)>;
 
     enum class Posture {
         Standing,
@@ -24,6 +25,9 @@ public:
     bool update(GLFWwindow* window, float dt, bool& previousJumpDown);
     bool update(GLFWwindow* window, float dt, bool& previousJumpDown,
                 const MovementCollisionTest& collisionTest);
+    bool update(GLFWwindow* window, float dt, bool& previousJumpDown,
+                const MovementCollisionTest& collisionTest,
+                const GroundHeightAt& groundHeightAt);
     void updateLook(GLFWwindow* window);
     void resetLookTracking(GLFWwindow* window);
     void updateAim(GLFWwindow* window, float dt);
@@ -39,6 +43,9 @@ public:
     bool grounded() const;
     Posture posture() const;
     void setPosture(Posture posture);
+    void setJumpVelocity(float jumpVelocity);
+    void setPosition(const Vec3& position);
+    void setYawDegrees(float yawDegrees);
 
     Vec3 toWorld(const Vec3& viewPosition) const;
     void apply() const;
@@ -48,6 +55,8 @@ private:
     float verticalVelocity_;
     float jumpOffset_;
     float currentHeight_;
+    float groundHeight_;
+    float jumpVelocity_;
     float yawDegrees_;
     float pitchDegrees_;
     float walkPhase_;

@@ -827,6 +827,10 @@ void SecurityGuardModel::setPosition(const Vec3& position) {
     homePosition_ = position;
 }
 
+void SecurityGuardModel::setYawDegrees(float yawDegrees) {
+    yawDegrees_ = yawDegrees;
+}
+
 void SecurityGuardModel::setPatrolling(bool patrolling) {
     patrolling_ = patrolling;
 }

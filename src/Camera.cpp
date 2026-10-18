@@ -49,6 +49,8 @@ void Camera::reset(const Vec3& position) {
     verticalVelocity_ = 0.0f;
     jumpOffset_ = 0.0f;
     currentHeight_ = position.y;
+    groundHeight_ = 0.0f;
+    jumpVelocity_ = constants::kCameraJumpVelocity;
     yawDegrees_ = 0.0f;
     pitchDegrees_ = 0.0f;
     walkPhase_ = 0.0f;
@@ -63,11 +65,19 @@ void Camera::reset(const Vec3& position) {
 }
 
 bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown) {
-    return update(window, dt, previousJumpDown, MovementCollisionTest{});
+    return update(window, dt, previousJumpDown, MovementCollisionTest{},
+                  GroundHeightAt{});
 }
 
 bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
                     const MovementCollisionTest& collisionTest) {
+    return update(window, dt, previousJumpDown, collisionTest,
+                  GroundHeightAt{});
+}
+
+bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
+                    const MovementCollisionTest& collisionTest,
+                    const GroundHeightAt& groundHeightAt) {
     Vec3 input{};
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
         input.z -= 1.0f;
@@ -135,12 +145,21 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
         walkPhase_ = 0.0f;
     }
 
+    const float surfaceHeight =
+        groundHeightAt ? groundHeightAt(position_) : 0.0f;
+
+    if (grounded_ && surfaceHeight < groundHeight_ - 0.05f) {
+        grounded_ = false;
+        verticalVelocity_ = 0.0f;
+        jumpOffset_ = 0.0f;
+    }
+
     const bool jumpDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
     if (jumpDown && !previousJumpDown && grounded_) {
         if (posture_ != Posture::Standing) {
             setPosture(Posture::Standing);
         } else {
-            verticalVelocity_ = constants::kCameraJumpVelocity;
+            verticalVelocity_ = jumpVelocity_;
             jumpOffset_ = 0.0f;
             grounded_ = false;
         }
@@ -158,13 +177,18 @@ bool Camera::update(GLFWwindow* window, float dt, bool& previousJumpDown,
     if (!grounded_ || verticalVelocity_ != 0.0f) {
         verticalVelocity_ -= constants::kCameraGravity * dt;
         jumpOffset_ += verticalVelocity_ * dt;
-        if (jumpOffset_ <= 0.0f) {
+
+        const float feetHeight = groundHeight_ + jumpOffset_;
+        if (verticalVelocity_ <= 0.0f &&
+            feetHeight <= surfaceHeight + 0.02f) {
+            groundHeight_ = surfaceHeight;
             jumpOffset_ = 0.0f;
             verticalVelocity_ = 0.0f;
             grounded_ = true;
         }
     }
-    position_.y = currentHeight_ + jumpOffset_;
+
+    position_.y = groundHeight_ + currentHeight_ + jumpOffset_;
 
     return moving_;
 }
@@ -264,6 +288,23 @@ Camera::Posture Camera::posture() const {
 
 void Camera::setPosture(Posture posture) {
     posture_ = posture;
+}
+
+void Camera::setJumpVelocity(float jumpVelocity) {
+    jumpVelocity_ = jumpVelocity;
+}
+
+void Camera::setPosition(const Vec3& position) {
+    position_ = position;
+    groundHeight_ = 0.0f;
+    currentHeight_ = position.y;
+    verticalVelocity_ = 0.0f;
+    jumpOffset_ = 0.0f;
+    grounded_ = true;
+}
+
+void Camera::setYawDegrees(float yawDegrees) {
+    yawDegrees_ = yawDegrees;
 }
 
 Vec3 Camera::toWorld(const Vec3& viewPosition) const {
