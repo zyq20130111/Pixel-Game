@@ -1870,6 +1870,38 @@ void MainScene::renderSniperScopeOverlay(const Camera& camera) const {
         ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
 }
 
+void MainScene::renderLowHealthOverlay() const {
+    const float healthRatio =
+        static_cast<float>(playerHealth_) /
+        static_cast<float>(std::max(1, playerMaxHealth_));
+    if (healthRatio >= 0.20f) {
+        return;
+    }
+
+    const float intensity = 1.0f - healthRatio / 0.20f;
+    const float cornerAlpha = 0.62f * intensity;
+    if (cornerAlpha <= 0.0f) {
+        return;
+    }
+
+    const float width = static_cast<float>(framebufferWidth_);
+    const float height = static_cast<float>(framebufferHeight_);
+    const float centerX = width * 0.5f;
+    const float centerY = height * 0.5f;
+
+    glShadeModel(GL_SMOOTH);
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(0.82f, 0.04f, 0.02f, 0.0f);
+    glVertex2f(centerX, centerY);
+    glColor4f(0.82f, 0.04f, 0.02f, cornerAlpha);
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(width, 0.0f);
+    glVertex2f(width, height);
+    glVertex2f(0.0f, height);
+    glEnd();
+    glShadeModel(GL_FLAT);
+}
+
 void MainScene::renderParkingHud() const {
     if (framebufferWidth_ <= 0 || framebufferHeight_ <= 0) {
         return;
@@ -1908,6 +1940,8 @@ void MainScene::renderParkingHud() const {
              static_cast<float>(framebufferHeight_)},
             dangerColor, flashAlpha);
     }
+
+    renderLowHealthOverlay();
 
     ThreeDUtils::drawRect2D(
         {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,
@@ -2077,6 +2111,8 @@ void MainScene::renderSecurityHud() const {
             dangerColor, flashAlpha);
     }
 
+    renderLowHealthOverlay();
+
     ThreeDUtils::drawRect2D(
         {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,
          panel.height},
@@ -2201,6 +2237,8 @@ void MainScene::renderWarehouseHud() const {
              static_cast<float>(framebufferHeight_)},
             dangerColor, flashAlpha);
     }
+
+    renderLowHealthOverlay();
 
     ThreeDUtils::drawRect2D(
         {panel.x + 6.0f * uiScale, panel.y + 6.0f * uiScale, panel.width,

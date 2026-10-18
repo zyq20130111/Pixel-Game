@@ -73,6 +73,7 @@ private:
     void renderImpactEffects() const;
     void renderCrosshair() const;
     void renderSniperScopeOverlay(const Camera& camera) const;
+    void renderLowHealthOverlay() const;
     void renderParkingHud() const;
     void renderSecurityHud() const;
     void renderWarehouseHud() const;
