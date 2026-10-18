@@ -1970,9 +1970,8 @@ void MainScene::renderWarehouseHud() const {
     if (warehouseScene_.drivingForklift()) {
         const float wheelX =
             static_cast<float>(framebufferWidth_) * 0.5f;
-        const float wheelY = static_cast<float>(framebufferHeight_) -
-                             margin - 48.0f * uiScale;
         const float wheelRadius = std::max(24.0f, 34.0f * uiScale);
+        const float wheelY = margin + wheelRadius + 8.0f * uiScale;
         const float spokeThickness =
             std::max(2.0f, 4.0f * uiScale);
         const float hubRadius = std::max(5.0f, 7.0f * uiScale);
