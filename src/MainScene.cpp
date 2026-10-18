@@ -15,6 +15,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <system_error>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -60,11 +61,15 @@ std::filesystem::path executableDirectory() {
 }
 
 std::filesystem::path saveFilePath() {
+#ifdef _WIN32
+    return std::filesystem::path(L"C:\\Pixel-Game\\save.dat");
+#else
     const std::filesystem::path moduleDirectory = executableDirectory();
     if (!moduleDirectory.empty()) {
         return moduleDirectory / "save.dat";
     }
     return std::filesystem::current_path() / "save.dat";
+#endif
 }
 
 constexpr float kSniperScopeOverlayStart = 0.55f;
@@ -650,7 +655,10 @@ void MainScene::saveCheckpoint(SceneType scene) {
             break;
     }
 
-    std::ofstream output(saveFilePath());
+    const std::filesystem::path path = saveFilePath();
+    std::error_code error;
+    std::filesystem::create_directories(path.parent_path(), error);
+    std::ofstream output(path);
     if (!output) {
         return;
     }
