@@ -1880,6 +1880,10 @@ void MainScene::renderSniperScopeOverlay(const Camera& camera) const {
 }
 
 void MainScene::renderLowHealthOverlay() const {
+    if (playerDown_) {
+        return;
+    }
+
     const float healthRatio =
         static_cast<float>(playerHealth_) /
         static_cast<float>(std::max(1, playerMaxHealth_));
