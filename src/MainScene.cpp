@@ -149,6 +149,40 @@ void drawInventoryPolygon(std::initializer_list<InventoryIconPoint> points,
     glEnd();
 }
 
+void drawRing(float centerX, float centerY, float innerRadius,
+              float outerRadius, const Color& color, float alpha,
+              int segments = 32) {
+    glColor4f(color.red, color.green, color.blue, alpha);
+    glBegin(GL_TRIANGLE_STRIP);
+    for (int i = 0; i <= segments; ++i) {
+        const float angle =
+            2.0f * constants::kPi * static_cast<float>(i) /
+            static_cast<float>(segments);
+        const float cosAngle = std::cos(angle);
+        const float sinAngle = std::sin(angle);
+        glVertex2f(centerX + cosAngle * outerRadius,
+                   centerY + sinAngle * outerRadius);
+        glVertex2f(centerX + cosAngle * innerRadius,
+                   centerY + sinAngle * innerRadius);
+    }
+    glEnd();
+}
+
+void drawFilledCircle(float centerX, float centerY, float radius,
+                      const Color& color, float alpha, int segments = 24) {
+    glColor4f(color.red, color.green, color.blue, alpha);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(centerX, centerY);
+    for (int i = 0; i <= segments; ++i) {
+        const float angle =
+            2.0f * constants::kPi * static_cast<float>(i) /
+            static_cast<float>(segments);
+        glVertex2f(centerX + std::cos(angle) * radius,
+                   centerY + std::sin(angle) * radius);
+    }
+    glEnd();
+}
+
 void drawInventoryKnifeIcon(const Rect& slot, float uiScale, float alpha) {
     const float centerX = slot.x + slot.width * 0.5f;
     const float centerY = slot.y + slot.height * 0.47f;
@@ -1931,6 +1965,40 @@ void MainScene::renderWarehouseHud() const {
         ThreeDUtils::drawText(labels.sniperAcquiredLabel, panel.x + 14.0f * uiScale,
                               panel.y + 120.0f * uiScale, textScale,
                               successColor);
+    }
+
+    if (warehouseScene_.drivingForklift()) {
+        const float wheelX =
+            static_cast<float>(framebufferWidth_) * 0.5f;
+        const float wheelY = static_cast<float>(framebufferHeight_) -
+                             margin - 48.0f * uiScale;
+        const float wheelRadius = std::max(24.0f, 34.0f * uiScale);
+        const float spokeThickness =
+            std::max(2.0f, 4.0f * uiScale);
+        const float hubRadius = std::max(5.0f, 7.0f * uiScale);
+        const float headingDegrees = warehouseScene_.forkliftHeadingDegrees();
+
+        drawRing(wheelX, wheelY, wheelRadius * 0.72f, wheelRadius,
+                 kSignColor, 0.95f);
+
+        glPushMatrix();
+        glTranslatef(wheelX, wheelY, 0.0f);
+        glRotatef(-headingDegrees, 0.0f, 0.0f, 1.0f);
+        ThreeDUtils::drawRect2D(
+            {-wheelRadius, -spokeThickness * 0.5f, wheelRadius * 2.0f,
+             spokeThickness},
+            kSignColor, 0.85f);
+        ThreeDUtils::drawRect2D(
+            {-spokeThickness * 0.5f, -wheelRadius, spokeThickness,
+             wheelRadius * 2.0f},
+            kSignColor, 0.85f);
+        drawFilledCircle(0.0f, wheelRadius * 0.84f,
+                         std::max(3.0f, 4.5f * uiScale), kSunCore, 1.0f);
+        glPopMatrix();
+
+        drawFilledCircle(wheelX, wheelY, hubRadius, kInkColor, 0.95f);
+        drawFilledCircle(wheelX, wheelY, hubRadius * 0.55f,
+                         successColor, 0.98f);
     }
 
     glDisable(GL_BLEND);
