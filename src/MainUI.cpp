@@ -113,9 +113,9 @@ bool MainUI::buttonClicked() const {
 
 void MainUI::showMainMenu() {
     page_ = Page::Main;
-    previousMouseDown_ = false;
-    previousEscapeDown_ = false;
-    previousEnterDown_ = false;
+    previousMouseDown_ = true;
+    previousEscapeDown_ = true;
+    previousEnterDown_ = true;
 }
 
 MainUI::Layout MainUI::makeLayout(int width, int height, Page page) {
