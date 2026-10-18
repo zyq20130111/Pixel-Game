@@ -18,6 +18,7 @@
 #include "types.h"
 
 #include <cstddef>
+#include <vector>
 #include <memory>
 #include <vector>
 
@@ -120,6 +121,7 @@ private:
     float loadingElapsed_;
     std::vector<std::unique_ptr<BulletBase>> bullets_;
     std::vector<ImpactEffect> impactEffects_;
+    std::vector<WeaponType> inventoryWeapons_;
     WeaponType equippedWeapon_;
     WeaponType weaponSwitchTarget_;
     float weaponSwitchElapsed_;

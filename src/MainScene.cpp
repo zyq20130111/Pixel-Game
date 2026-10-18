@@ -181,6 +181,36 @@ void drawInventoryKnifeIcon(const Rect& slot, float uiScale, float alpha) {
     glPopMatrix();
 }
 
+void drawInventorySniperIcon(const Rect& slot, float uiScale, float alpha) {
+    const float centerX = slot.x + slot.width * 0.5f;
+    const float centerY = slot.y + slot.height * 0.47f;
+    glPushMatrix();
+    glTranslatef(centerX, centerY, 0.0f);
+    glScalef(uiScale, uiScale, 1.0f);
+
+    ThreeDUtils::drawRect2D({-40.0f, -8.0f, 22.0f, 17.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-36.0f, -5.0f, 30.0f, 11.0f},
+                            kSniperStock, alpha);
+    ThreeDUtils::drawRect2D({-16.0f, -12.0f, 40.0f, 20.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-13.0f, -9.0f, 35.0f, 14.0f},
+                            kSniperMetal, alpha);
+    ThreeDUtils::drawRect2D({20.0f, -6.0f, 30.0f, 8.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({22.0f, -4.0f, 30.0f, 4.0f},
+                            kSniperBarrel, alpha);
+    ThreeDUtils::drawRect2D({-6.0f, -18.0f, 21.0f, 6.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-3.0f, -16.0f, 15.0f, 3.0f},
+                            kSniperScope, alpha);
+    ThreeDUtils::drawRect2D({-8.0f, 8.0f, 6.0f, 17.0f},
+                            kInkColor, alpha);
+    ThreeDUtils::drawRect2D({-5.0f, 10.0f, 4.0f, 12.0f},
+                            kSniperMetalDark, alpha);
+    glPopMatrix();
+}
+
 }  // namespace
 
 MainScene::MainScene()
@@ -396,6 +426,8 @@ void MainScene::resetGame() {
     knife_.reset();
     pistol_.reset();
     sniperRifle_.reset();
+    inventoryWeapons_.clear();
+    inventoryWeapons_.push_back(WeaponType::Knife);
     equippedWeapon_ = WeaponType::Knife;
     weaponSwitchTarget_ = equippedWeapon_;
     weaponSwitchElapsed_ = 0.0f;
@@ -859,6 +891,7 @@ void MainScene::updateWarehouseGameplay(float dt) {
             !warehouseScene_.sniperRifleTaken()) {
             if (warehouseScene_.interactWithSniperCrate(
                     camera_.position())) {
+                inventoryWeapons_.push_back(WeaponType::Sniper);
                 requestWeapon(WeaponType::Sniper);
                 soundManager_.play2D("btnclick.wav", 1.0f);
             }
@@ -1160,12 +1193,14 @@ void MainScene::updateWeaponSelection(float dt) {
     const bool weapon3Down =
         numberKeyDown(window_, GLFW_KEY_3, GLFW_KEY_KP_3);
 
-    if (weapon1Down && !previousWeapon1Down_) {
-        requestWeapon(WeaponType::Knife);
-    } else if (weapon3Down && !previousWeapon3Down_ &&
-               activeScene_ == SceneType::Warehouse &&
-               warehouseScene_.sniperRifleTaken()) {
-        requestWeapon(WeaponType::Sniper);
+    const bool weaponDowns[] = {weapon1Down, weapon2Down, weapon3Down};
+    const bool previousWeaponDowns[] = {
+        previousWeapon1Down_, previousWeapon2Down_, previousWeapon3Down_};
+    for (std::size_t index = 0; index < 3; ++index) {
+        if (weaponDowns[index] && !previousWeaponDowns[index] &&
+            index < inventoryWeapons_.size()) {
+            requestWeapon(inventoryWeapons_[index]);
+        }
     }
 
     previousWeapon1Down_ = weapon1Down;
@@ -1911,7 +1946,7 @@ void MainScene::renderWeaponInventory() const {
     const float startX = margin;
     const float startY =
         static_cast<float>(framebufferHeight_) - margin - slotSize;
-    const Rect knifeSlot{startX, startY, slotSize, slotSize};
+    const float slotGap = std::max(10.0f, 14.0f * uiScale);
 
     ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
     glDisable(GL_DEPTH_TEST);
@@ -1919,24 +1954,47 @@ void MainScene::renderWeaponInventory() const {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    const Color fill{0.12f, 0.36f, 0.40f};
-    ThreeDUtils::drawRect2D(
-        {knifeSlot.x + 5.0f * uiScale, knifeSlot.y + 6.0f * uiScale,
-         knifeSlot.width, knifeSlot.height},
-        kInkColor, 0.45f);
-    ThreeDUtils::drawRect2D(knifeSlot, fill, 0.98f);
-    ThreeDUtils::drawRect2D(
-        {knifeSlot.x, knifeSlot.y, knifeSlot.width, 5.0f * uiScale},
-        kSunCore, 0.95f);
-    ThreeDUtils::drawFrame2D(
-        knifeSlot, kSunCore, std::max(2.0f, 4.0f * uiScale));
-
-    drawInventoryKnifeIcon(knifeSlot, uiScale, 1.0f);
+    const auto drawSlot = [&](const Rect& slot, bool selected) {
+        const Color fill = selected ? Color{0.10f, 0.30f, 0.34f}
+                                    : Color{0.12f, 0.36f, 0.40f};
+        const Color outline = selected ? kSunCore : kInkColor;
+        ThreeDUtils::drawRect2D(
+            {slot.x + 5.0f * uiScale, slot.y + 6.0f * uiScale,
+             slot.width, slot.height},
+            kInkColor, 0.45f);
+        ThreeDUtils::drawRect2D(slot, fill, selected ? 0.98f : 0.90f);
+        ThreeDUtils::drawRect2D(
+            {slot.x, slot.y, slot.width, 5.0f * uiScale},
+            selected ? kSunCore : kPanelBottom, 0.95f);
+        ThreeDUtils::drawFrame2D(
+            slot, outline, std::max(2.0f, (selected ? 4.0f : 2.0f) * uiScale));
+    };
 
     const float keyScale = std::max(1.0f, 2.0f * uiScale);
     const Color keyColor{0.95f, 0.98f, 0.92f};
-    ThreeDUtils::drawText("1", knifeSlot.x + 8.0f * uiScale,
-                          knifeSlot.y + 9.0f * uiScale, keyScale, keyColor);
+
+    for (std::size_t index = 0; index < inventoryWeapons_.size(); ++index) {
+        const Rect slot{
+            startX + static_cast<float>(index) * (slotSize + slotGap),
+            startY,
+            slotSize,
+            slotSize,
+        };
+        const WeaponType weapon = inventoryWeapons_[index];
+        const bool selected = equippedWeapon_ == weapon;
+
+        drawSlot(slot, selected);
+        if (weapon == WeaponType::Knife) {
+            drawInventoryKnifeIcon(slot, uiScale, selected ? 1.0f : 0.76f);
+        } else if (weapon == WeaponType::Sniper) {
+            drawInventorySniperIcon(slot, uiScale, selected ? 1.0f : 0.76f);
+        }
+
+        ThreeDUtils::drawText(
+            std::to_string(index + 1),
+            slot.x + 8.0f * uiScale, slot.y + 9.0f * uiScale,
+            keyScale, keyColor);
+    }
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
