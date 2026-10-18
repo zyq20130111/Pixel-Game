@@ -1927,6 +1927,32 @@ void MainScene::renderWarehouseHud() const {
                               successColor);
     }
 
+    if (warehouseScene_.drivingForklift()) {
+        const float compassX = static_cast<float>(framebufferWidth_) * 0.5f;
+        const float compassY = margin + 40.0f * uiScale;
+        const float radius = std::max(16.0f, 22.0f * uiScale);
+        const float headingRadians =
+            warehouseScene_.forkliftHeadingDegrees() * kPi / 180.0f;
+        const float dirX = std::sin(headingRadians);
+        const float dirY = std::cos(headingRadians);
+        const float perpX = -dirY;
+        const float perpY = dirX;
+        const float baseHalf = radius * 0.45f;
+        const float tipX = compassX + dirX * radius;
+        const float tipY = compassY + dirY * radius;
+        const float backX = compassX - dirX * radius * 0.55f;
+        const float backY = compassY - dirY * radius * 0.55f;
+
+        drawInventoryPolygon(
+            {{tipX, tipY},
+             {backX + perpX * baseHalf, backY + perpY * baseHalf},
+             {backX - perpX * baseHalf, backY - perpY * baseHalf}},
+            kSunCore, 0.95f);
+        ThreeDUtils::drawText(
+            "N", compassX - ThreeDUtils::textWidth("N", textScale) * 0.5f,
+            compassY - radius - 18.0f * uiScale, textScale, successColor);
+    }
+
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);

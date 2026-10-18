@@ -126,8 +126,8 @@ void WarehouseScene::reset(Difficulty difficulty) {
 
     guards_[2].setRole(SecurityGuardRole::Guard);
     guards_[2].setDifficulty(difficulty_);
-    guards_[2].setWeapon(SecurityGuardWeapon::Baton);
-    guards_[2].setPosition({2.5f, 0.0f, 9.2f});
+    guards_[2].setWeapon(SecurityGuardWeapon::Sniper);
+    guards_[2].setPosition({4.5f, 0.0f, 8.8f});
     guards_[2].setPatrolling(false);
     guards_[2].setPatrolWaypoints({});
     guards_[2].reset();
@@ -314,10 +314,10 @@ WarehouseScene::Box WarehouseScene::shelfBox() const {
 void WarehouseScene::updateForklift(float dt, bool accelerate, bool reverse,
                                     bool steerLeft, bool steerRight) {
     if (steerLeft) {
-        forkliftHeadingDegrees_ += kForkliftTurnSpeed * dt;
+        forkliftHeadingDegrees_ -= kForkliftTurnSpeed * dt;
     }
     if (steerRight) {
-        forkliftHeadingDegrees_ -= kForkliftTurnSpeed * dt;
+        forkliftHeadingDegrees_ += kForkliftTurnSpeed * dt;
     }
 
     float speed = 0.0f;
