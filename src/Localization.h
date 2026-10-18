@@ -39,6 +39,10 @@ struct UiText {
     const char* exitPromptSubtitle;
     const char* confirmButton;
     const char* cancelButton;
+    const char* deathPromptTitle;
+    const char* deathPromptSubtitle;
+    const char* retryButton;
+    const char* mainMenuButton;
 };
 
 struct ParkingText {

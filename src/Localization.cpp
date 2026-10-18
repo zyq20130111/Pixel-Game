@@ -35,6 +35,10 @@ constexpr UiText kEnglishText{
     "ARE YOU SURE",
     "YES",
     "NO",
+    "GAME OVER",
+    "RETRY THIS SCENE?",
+    "RETRY",
+    "MAIN MENU",
 };
 
 // Keep these literals ASCII-only so the source file encoding cannot corrupt
@@ -71,6 +75,10 @@ constexpr UiText kChineseText{
     "\xE7\xA1\xAE\xE5\xAE\x9A\xE9\x80\x80\xE5\x87\xBA\xE5\x90\x97",
     "\xE6\x98\xAF",
     "\xE5\x90\xA6",
+    "\xE6\xB8\xB8\xE6\x88\x8F\xE7\xBB\x93\xE6\x9D\x9F",
+    "\xE6\x98\xAF\xE5\x90\xA6\xE9\x87\x8D\xE8\xAF\x95\xE6\xB8\xB8\xE6\x88\x8F\xEF\xBC\x9F",
+    "\xE9\x87\x8D\xE8\xAF\x95",
+    "\xE4\xB8\xBB\xE8\x8F\x9C\xE5\x8D\x95",
 };
 
 constexpr ParkingText kEnglishParkingText{

@@ -51,6 +51,7 @@ private:
     void updateWarehouseGameplay(float dt);
     void updateLoading(float dt);
     void updateExitPrompt();
+    void updateDeathPrompt();
     void updateGameplay(float dt);
     void updateBullets(float dt);
     void updateImpactEffects(float dt);
@@ -58,6 +59,7 @@ private:
                                const Vec3& currentPosition) const;
     void renderFrame(const Camera& camera, bool showWeapon);
     void renderExitPrompt() const;
+    void renderDeathPrompt() const;
     void renderScene() const;
     void renderImpactEffects() const;
     void renderCrosshair() const;
@@ -144,6 +146,7 @@ private:
     bool playerDown_;
     bool previousEscapeDown_;
     bool exitPromptVisible_;
+    bool deathPromptVisible_;
     bool previousPromptMouseDown_;
     MouseState promptMouse_;
     bool fpsDisplayVisible_;

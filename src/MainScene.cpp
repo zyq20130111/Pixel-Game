@@ -293,6 +293,7 @@ MainScene::MainScene()
       playerDown_(false),
       previousEscapeDown_(false),
       exitPromptVisible_(false),
+      deathPromptVisible_(false),
       previousPromptMouseDown_(false),
       promptMouse_{0.0f, 0.0f, false},
       fpsDisplayVisible_(false),
@@ -365,9 +366,24 @@ int MainScene::run() {
             loadingUI_.render(framebufferWidth_, framebufferHeight_);
         } else {
             const bool promptWasVisible = exitPromptVisible_;
-            updateExitPrompt();
-            if (!promptWasVisible && !exitPromptVisible_) {
+            if (!deathPromptVisible_) {
+                updateExitPrompt();
+            }
+            if (!promptWasVisible && !exitPromptVisible_ &&
+                !deathPromptVisible_) {
                 updateGameplay(dt);
+            }
+            if (playerDown_ && !deathPromptVisible_ &&
+                !exitPromptVisible_) {
+                deathPromptVisible_ = true;
+                glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                camera_.resetLookTracking(window_);
+                previousPromptMouseDown_ =
+                    glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) ==
+                    GLFW_PRESS;
+            }
+            if (deathPromptVisible_) {
+                updateDeathPrompt();
             }
 
             ThreeDUtils::setProjection(
@@ -377,6 +393,8 @@ int MainScene::run() {
             renderFrame(camera_, true);
             if (exitPromptVisible_) {
                 renderExitPrompt();
+            } else if (deathPromptVisible_) {
+                renderDeathPrompt();
             }
         }
 
@@ -475,6 +493,7 @@ void MainScene::resetGame() {
     playerDamageFlashTimer_ = 0.0f;
     playerDown_ = false;
     exitPromptVisible_ = false;
+    deathPromptVisible_ = false;
     previousEscapeDown_ =
         glfwGetKey(window_, GLFW_KEY_ESCAPE) == GLFW_PRESS;
     previousWeapon1Down_ =
@@ -540,6 +559,32 @@ void MainScene::updateExitPrompt() {
             glfwGetKey(window_, GLFW_KEY_C) == GLFW_PRESS;
         previousProneDown_ =
             glfwGetKey(window_, GLFW_KEY_Z) == GLFW_PRESS;
+    }
+}
+
+void MainScene::updateDeathPrompt() {
+    promptMouse_ =
+        getMouseState(window_, framebufferWidth_, framebufferHeight_);
+    const bool clicked = promptMouse_.pressed && !previousPromptMouseDown_;
+    previousPromptMouseDown_ = promptMouse_.pressed;
+    if (!clicked) {
+        return;
+    }
+
+    const ExitPromptLayout layout =
+        makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
+    if (contains(layout.yesButton, promptMouse_.x, promptMouse_.y)) {
+        soundManager_.play2D("btnclick.wav", 1.0f);
+        deathPromptVisible_ = false;
+        resetGame();
+    } else if (contains(layout.noButton, promptMouse_.x, promptMouse_.y)) {
+        soundManager_.play2D("btnclick.wav", 1.0f);
+        soundManager_.stopAll();
+        deathPromptVisible_ = false;
+        exitPromptVisible_ = false;
+        state_ = AppState::MainMenu;
+        mainUI_.showMainMenu();
+        glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 }
 
@@ -1320,6 +1365,61 @@ void MainScene::renderExitPrompt() const {
                      contains(layout.yesButton, promptMouse_.x, promptMouse_.y),
                      uiScale);
     drawPromptButton(layout.noButton, text.cancelButton, kButtonStart,
+                     contains(layout.noButton, promptMouse_.x, promptMouse_.y),
+                     uiScale);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+    ThreeDUtils::setProjection(
+        framebufferWidth_, framebufferHeight_,
+        ThreeDUtils::currentFieldOfView(camera_.aimAmount()));
+}
+
+void MainScene::renderDeathPrompt() const {
+    const UiText& text = uiText(language_);
+    const ExitPromptLayout layout =
+        makeExitPromptLayout(framebufferWidth_, framebufferHeight_);
+    const float uiScale =
+        std::min(static_cast<float>(framebufferWidth_) /
+                     static_cast<float>(kWindowWidth),
+                 static_cast<float>(framebufferHeight_) /
+                     static_cast<float>(kWindowHeight));
+
+    ThreeDUtils::setUiProjection(framebufferWidth_, framebufferHeight_);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    ThreeDUtils::drawRect2D(
+        {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
+         static_cast<float>(framebufferHeight_)},
+        kInkColor, 0.52f);
+    ThreeDUtils::drawRect2D(
+        {layout.panel.x + 8.0f * uiScale, layout.panel.y + 8.0f * uiScale,
+         layout.panel.width, layout.panel.height},
+        kInkColor, 0.35f);
+    ThreeDUtils::drawRect2D(layout.panel, kPanelBottom, 0.98f);
+    ThreeDUtils::drawRect2D(
+        {layout.panel.x, layout.panel.y, layout.panel.width,
+         layout.panel.height * 0.42f},
+        kPanelTop, 0.98f);
+    ThreeDUtils::drawFrame2D(
+        layout.panel, kInkColor, std::max(2.0f, 5.0f * uiScale));
+
+    ThreeDUtils::drawCenteredText(
+        text.deathPromptTitle, layout.panel, std::max(1.0f, 4.0f * uiScale),
+        kInkColor, 42.0f * uiScale);
+    ThreeDUtils::drawCenteredText(
+        text.deathPromptSubtitle, layout.panel,
+        std::max(1.0f, 2.4f * uiScale),
+        ThreeDUtils::shade(kInkColor, 1.2f), 104.0f * uiScale);
+
+    drawPromptButton(layout.yesButton, text.retryButton, kButtonStart,
+                     contains(layout.yesButton, promptMouse_.x, promptMouse_.y),
+                     uiScale);
+    drawPromptButton(layout.noButton, text.mainMenuButton, kButtonExit,
                      contains(layout.noButton, promptMouse_.x, promptMouse_.y),
                      uiScale);
 
