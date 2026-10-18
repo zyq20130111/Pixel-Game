@@ -952,7 +952,7 @@ void WarehouseScene::drawForklift() const {
 
     glPushMatrix();
     glTranslatef(forkliftPosition_.x, 0.0f, forkliftPosition_.z);
-    glRotatef(forkliftHeadingDegrees_ - 180.0f, 0.0f, 1.0f, 0.0f);
+    glRotatef(180.0f - forkliftHeadingDegrees_, 0.0f, 1.0f, 0.0f);
 
     ThreeDUtils::drawCube({0.0f, 0.72f, -0.2f}, {2.2f, 1.1f, 3.4f}, body);
     ThreeDUtils::drawCube({0.0f, 1.45f, -0.4f}, {2.0f, 0.36f, 0.7f}, bodyDark);

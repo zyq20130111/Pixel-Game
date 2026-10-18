@@ -792,6 +792,7 @@ void MainScene::updateWarehouseGameplay(float dt) {
                                        steerRight);
         camera_.setPosition(warehouseScene_.forkliftSeatPosition());
         camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+        camera_.setPitchDegrees(0.0f);
         camera_.setPosture(Camera::Posture::Standing);
         camera_.updateAim(window_, dt);
         soundManager_.setListener(camera_.position(), camera_.forward(),
@@ -802,6 +803,7 @@ void MainScene::updateWarehouseGameplay(float dt) {
             warehouseScene_.exitForklift();
             camera_.setPosition(warehouseScene_.forkliftExitPosition());
             camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+            camera_.setPitchDegrees(0.0f);
             camera_.resetLookTracking(window_);
             soundManager_.play2D("btnclick.wav", 1.0f);
         }
@@ -900,6 +902,7 @@ void MainScene::updateWarehouseGameplay(float dt) {
             camera_.resetLookTracking(window_);
             camera_.setPosition(warehouseScene_.forkliftSeatPosition());
             camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
+            camera_.setPitchDegrees(0.0f);
             soundManager_.play2D("btnclick.wav", 1.0f);
         }
     }

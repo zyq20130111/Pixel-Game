@@ -307,6 +307,10 @@ void Camera::setYawDegrees(float yawDegrees) {
     yawDegrees_ = yawDegrees;
 }
 
+void Camera::setPitchDegrees(float pitchDegrees) {
+    pitchDegrees_ = pitchDegrees;
+}
+
 Vec3 Camera::toWorld(const Vec3& viewPosition) const {
     return ThreeDUtils::cameraToWorld(position_, viewPosition, yawDegrees_,
                                       pitchDegrees_);

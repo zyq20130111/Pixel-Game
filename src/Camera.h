@@ -46,6 +46,7 @@ public:
     void setJumpVelocity(float jumpVelocity);
     void setPosition(const Vec3& position);
     void setYawDegrees(float yawDegrees);
+    void setPitchDegrees(float pitchDegrees);
 
     Vec3 toWorld(const Vec3& viewPosition) const;
     void apply() const;
