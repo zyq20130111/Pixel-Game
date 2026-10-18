@@ -53,6 +53,7 @@ private:
     bool initialize();
     void resetGame();
     void saveCheckpoint(SceneType scene);
+    bool loadCheckpointFromFile();
     void restoreCheckpoint();
     void startLoading(SceneType destination, Difficulty difficulty);
     void updateSecurityGameplay(float dt);
@@ -138,6 +139,7 @@ private:
     std::vector<WeaponType> inventoryWeapons_;
     std::vector<SavedWeapon> checkpointWeapons_;
     SceneType checkpointScene_;
+    bool checkpointLoaded_;
     WeaponType equippedWeapon_;
     WeaponType weaponSwitchTarget_;
     float weaponSwitchElapsed_;

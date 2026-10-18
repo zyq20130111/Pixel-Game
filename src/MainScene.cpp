@@ -9,10 +9,22 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <string>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#elif defined(__linux__)
+#include <limits.h>
+#include <unistd.h>
+#endif
 
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -25,6 +37,35 @@ namespace pixel_world {
 namespace {
 
 using namespace constants;
+
+std::filesystem::path executableDirectory() {
+#ifdef _WIN32
+    std::wstring modulePath(32768, L'\0');
+    const DWORD length = GetModuleFileNameW(
+        nullptr, modulePath.data(), static_cast<DWORD>(modulePath.size()));
+    if (length > 0 && length < modulePath.size()) {
+        modulePath.resize(length);
+        return std::filesystem::path(modulePath).parent_path();
+    }
+#elif defined(__linux__)
+    char modulePath[PATH_MAX] = {};
+    const ssize_t length =
+        readlink("/proc/self/exe", modulePath, sizeof(modulePath) - 1);
+    if (length > 0) {
+        modulePath[length] = '\0';
+        return std::filesystem::path(modulePath).parent_path();
+    }
+#endif
+    return {};
+}
+
+std::filesystem::path saveFilePath() {
+    const std::filesystem::path moduleDirectory = executableDirectory();
+    if (!moduleDirectory.empty()) {
+        return moduleDirectory / "save.dat";
+    }
+    return std::filesystem::current_path() / "save.dat";
+}
 
 constexpr float kSniperScopeOverlayStart = 0.55f;
 constexpr float kSniperScopeOverlayFade = 0.45f;
@@ -274,6 +315,7 @@ MainScene::MainScene()
       inventoryWeapons_(),
       checkpointWeapons_(),
       checkpointScene_(SceneType::ParkingLot),
+      checkpointLoaded_(false),
       equippedWeapon_(WeaponType::Knife),
       weaponSwitchTarget_(WeaponType::Knife),
       weaponSwitchElapsed_(0.0f),
@@ -302,7 +344,9 @@ MainScene::MainScene()
       fpsDisplayVisible_(false),
       fps_(0.0f),
       fpsAccumulator_(0.0f),
-      fpsFrameCount_(0) {}
+      fpsFrameCount_(0) {
+    loadCheckpointFromFile();
+}
 
 MainScene::~MainScene() {
     if (window_ != nullptr) {
@@ -335,9 +379,14 @@ int MainScene::run() {
             if (mainUI_.buttonClicked()) {
                 soundManager_.play2D("btnclick.wav", 1.0f);
             }
-            if (action == MenuAction::NewGame ||
-                action == MenuAction::ContinueGame) {
+            if (action == MenuAction::NewGame) {
                 state_ = AppState::DifficultySelect;
+            } else if (action == MenuAction::ContinueGame) {
+                if (checkpointLoaded_) {
+                    startLoading(checkpointScene_, selectedDifficulty_);
+                } else {
+                    state_ = AppState::DifficultySelect;
+                }
             } else if (action == MenuAction::Exit) {
                 glfwSetWindowShouldClose(window_, GLFW_TRUE);
             }
@@ -575,18 +624,114 @@ void MainScene::saveCheckpoint(SceneType scene) {
         checkpointWeapons_.push_back(
             {weaponId(WeaponType::Knife),
              weaponDescription(WeaponType::Knife, language_)});
-        return;
-    }
-
-    for (WeaponType weapon : inventoryWeapons_) {
-        checkpointWeapons_.push_back(
-            {weaponId(weapon), weaponDescription(weapon, language_)});
+    } else {
+        for (WeaponType weapon : inventoryWeapons_) {
+            checkpointWeapons_.push_back(
+                {weaponId(weapon), weaponDescription(weapon, language_)});
+        }
     }
     if (checkpointWeapons_.empty()) {
         checkpointWeapons_.push_back(
             {weaponId(WeaponType::Knife),
              weaponDescription(WeaponType::Knife, language_)});
     }
+
+    int sceneId = 0;
+    switch (checkpointScene_) {
+        case SceneType::ParkingLot:
+            sceneId = 1;
+            break;
+        case SceneType::SecurityCheck:
+            sceneId = 2;
+            break;
+        case SceneType::Warehouse:
+            sceneId = 3;
+            break;
+    }
+
+    std::ofstream output(saveFilePath());
+    if (!output) {
+        return;
+    }
+    output << "scene=" << sceneId << '\n';
+    output << "difficulty=" << static_cast<int>(selectedDifficulty_) << '\n';
+    for (const SavedWeapon& weapon : checkpointWeapons_) {
+        output << "weapon=" << weapon.id << ',' << weapon.description << '\n';
+    }
+    checkpointLoaded_ = true;
+}
+
+bool MainScene::loadCheckpointFromFile() {
+    std::ifstream input(saveFilePath());
+    if (!input) {
+        return false;
+    }
+
+    int sceneId = 0;
+    int difficultyId = -1;
+    std::vector<SavedWeapon> weapons;
+    std::string line;
+    try {
+        while (std::getline(input, line)) {
+            if (line.rfind("scene=", 0) == 0) {
+                sceneId = std::stoi(line.substr(6));
+            } else if (line.rfind("difficulty=", 0) == 0) {
+                difficultyId = std::stoi(line.substr(11));
+            } else if (line.rfind("weapon=", 0) == 0) {
+                const std::string payload = line.substr(7);
+                const std::size_t separator = payload.find(',');
+                const int id =
+                    std::stoi(payload.substr(0, separator));
+                const std::string description =
+                    separator == std::string::npos
+                        ? std::string()
+                        : payload.substr(separator + 1);
+                weapons.push_back({id, description});
+            }
+        }
+    } catch (...) {
+        return false;
+    }
+
+    if (sceneId < 1 || sceneId > 3) {
+        return false;
+    }
+    switch (sceneId) {
+        case 1:
+            checkpointScene_ = SceneType::ParkingLot;
+            break;
+        case 2:
+            checkpointScene_ = SceneType::SecurityCheck;
+            break;
+        case 3:
+            checkpointScene_ = SceneType::Warehouse;
+            break;
+        default:
+            return false;
+    }
+
+    selectedDifficulty_ =
+        difficultyId == 0
+            ? Difficulty::Easy
+            : (difficultyId == 2 ? Difficulty::Hard : Difficulty::Normal);
+
+    if (weapons.empty()) {
+        weapons.push_back(
+            {weaponId(WeaponType::Knife),
+             weaponDescription(WeaponType::Knife, language_)});
+    }
+    checkpointWeapons_ = weapons;
+
+    inventoryWeapons_.clear();
+    for (const SavedWeapon& weapon : checkpointWeapons_) {
+        inventoryWeapons_.push_back(weaponFromId(weapon.id));
+    }
+    if (inventoryWeapons_.empty()) {
+        inventoryWeapons_.push_back(WeaponType::Knife);
+    }
+    equippedWeapon_ = inventoryWeapons_.front();
+    checkpointLoaded_ = true;
+    return true;
 }
 
 void MainScene::restoreCheckpoint() {
@@ -1323,9 +1468,9 @@ void MainScene::renderScene() const {
 }
 
 void MainScene::startLoading(SceneType destination, Difficulty difficulty) {
-    saveCheckpoint(destination);
     loadingDestination_ = destination;
     selectedDifficulty_ = difficulty;
+    saveCheckpoint(destination);
     loadingElapsed_ = 0.0f;
     loadingUI_.setProgress(0.0f);
     state_ = AppState::Loading;
