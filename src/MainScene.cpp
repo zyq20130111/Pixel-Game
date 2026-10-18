@@ -790,6 +790,12 @@ void MainScene::updateWarehouseGameplay(float dt) {
             glfwGetKey(window_, GLFW_KEY_D) == GLFW_PRESS;
         warehouseScene_.updateForklift(dt, accelerate, reverse, steerLeft,
                                        steerRight);
+        if (warehouseScene_.doorCrashed()) {
+            soundManager_.play3D("crash.wav",
+                                 warehouseScene_.doorCrashPosition(), 1.0f);
+            spawnImpactEffect(warehouseScene_.doorCrashPosition(),
+                              ImpactType::Geometry);
+        }
         camera_.setPosition(warehouseScene_.forkliftSeatPosition());
         camera_.setYawDegrees(warehouseScene_.forkliftHeadingDegrees());
         camera_.setPitchDegrees(0.0f);
@@ -1925,38 +1931,6 @@ void MainScene::renderWarehouseHud() const {
         ThreeDUtils::drawText(labels.sniperAcquiredLabel, panel.x + 14.0f * uiScale,
                               panel.y + 120.0f * uiScale, textScale,
                               successColor);
-    }
-
-    if (warehouseScene_.drivingForklift()) {
-        const float compassX = static_cast<float>(framebufferWidth_) * 0.5f;
-        const float compassY = margin + 40.0f * uiScale;
-        const float radius = std::max(22.0f, 32.0f * uiScale);
-        const float headingRadians =
-            warehouseScene_.forkliftHeadingDegrees() * kPi / 180.0f;
-        const float sinHeading = std::sin(headingRadians);
-        const float cosHeading = std::cos(headingRadians);
-
-        const auto drawCompassLetter = [&](const char* letter, float dirX,
-                                           float dirZ) {
-            const float forward = dirX * sinHeading - dirZ * cosHeading;
-            const float right = -dirX * cosHeading - dirZ * sinHeading;
-            const float x = compassX + right * radius;
-            const float y = compassY - forward * radius;
-            ThreeDUtils::drawText(
-                letter, x - ThreeDUtils::textWidth(letter, textScale) * 0.5f,
-                y - textScale * 0.5f, textScale, mutedColor);
-        };
-
-        drawCompassLetter("N", 0.0f, 1.0f);
-        drawCompassLetter("E", 1.0f, 0.0f);
-        drawCompassLetter("S", 0.0f, -1.0f);
-        drawCompassLetter("W", -1.0f, 0.0f);
-
-        ThreeDUtils::drawRect2D(
-            {compassX - 1.5f * uiScale,
-             compassY - radius - 8.0f * uiScale,
-             3.0f * uiScale, 8.0f * uiScale},
-            kSunCore, 0.95f);
     }
 
     glDisable(GL_BLEND);

@@ -92,7 +92,9 @@ WarehouseScene::WarehouseScene(Language language)
       language_(language),
       difficulty_(Difficulty::Normal),
       sniperFired_(false),
-      sniperFiredPosition_{} {}
+      sniperFiredPosition_{},
+      doorCrashed_(false),
+      doorCrashPosition_{} {}
 
 void WarehouseScene::reset(Difficulty difficulty) {
     difficulty_ = difficulty;
@@ -105,6 +107,8 @@ void WarehouseScene::reset(Difficulty difficulty) {
     forkliftPosition_ = kForkliftStart;
     sniperFired_ = false;
     sniperFiredPosition_ = {};
+    doorCrashed_ = false;
+    doorCrashPosition_ = {};
 
     guards_[0].setRole(SecurityGuardRole::Guard);
     guards_[0].setDifficulty(difficulty_);
@@ -170,14 +174,22 @@ int WarehouseScene::updateGuards(float dt, const Vec3& playerPosition) {
 
         const bool canSee = canGuardSeePlayer(guard, playerPosition);
         const bool canHit = hasLineOfSight(guard, playerPosition);
+        const bool sniperGuard =
+            guard.weapon() == SecurityGuardWeapon::Sniper;
+        const bool weaponCanHitPlayer = sniperGuard ? canSee : canHit;
+        const bool wasAttacking = guard.attacking();
         const Vec3 currentGuardPosition = guard.position();
         damage += guard.update(
-            dt, playerPosition, canSee, canHit,
+            dt, playerPosition, canSee, weaponCanHitPlayer,
             [this, index, &playerPosition, currentGuardPosition](
                 const Vec3& position) {
                 return guardPositionBlocked(position, currentGuardPosition,
                                             index, playerPosition);
             });
+        if (sniperGuard && guard.attacking() && !wasAttacking) {
+            sniperFired_ = true;
+            sniperFiredPosition_ = guard.position();
+        }
     }
     return damage;
 }
@@ -313,6 +325,7 @@ WarehouseScene::Box WarehouseScene::shelfBox() const {
 
 void WarehouseScene::updateForklift(float dt, bool accelerate, bool reverse,
                                     bool steerLeft, bool steerRight) {
+    doorCrashed_ = false;
     if (steerLeft) {
         forkliftHeadingDegrees_ -= kForkliftTurnSpeed * dt;
     }
@@ -359,6 +372,8 @@ void WarehouseScene::updateForklift(float dt, bool accelerate, bool reverse,
 
     if (!ironDoorOpen_ && forkliftPosition_.z >= kForkliftDoorCrashZ) {
         ironDoorOpen_ = true;
+        doorCrashed_ = true;
+        doorCrashPosition_ = {0.0f, 2.2f, kDoorZ - 0.2f};
     }
 }
 
@@ -670,6 +685,14 @@ Vec3 WarehouseScene::sniperFiredPosition() const {
     return sniperFiredPosition_;
 }
 
+bool WarehouseScene::doorCrashed() const {
+    return doorCrashed_;
+}
+
+Vec3 WarehouseScene::doorCrashPosition() const {
+    return doorCrashPosition_;
+}
+
 Vec3 WarehouseScene::spawnPosition() const {
     return {0.0f, kCameraGroundHeight, -9.0f};
 }
@@ -943,7 +966,6 @@ void WarehouseScene::drawShelf() const {
 }
 
 void WarehouseScene::drawForklift() const {
-    const WarehouseText& text = warehouseText(language_);
     const Color body{0.96f, 0.54f, 0.10f};
     const Color bodyDark{0.38f, 0.18f, 0.06f};
     const Color mast{0.16f, 0.20f, 0.24f};
@@ -971,10 +993,6 @@ void WarehouseScene::drawForklift() const {
         }
     }
     glPopMatrix();
-
-    drawWorldLabel(text.forkliftLabel,
-                   {forkliftPosition_.x, 2.9f, forkliftPosition_.z}, 0.040f,
-                   kSignColor);
 }
 
 void WarehouseScene::drawLighting() const {

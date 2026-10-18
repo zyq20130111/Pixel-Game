@@ -61,6 +61,8 @@ public:
     bool levelComplete() const;
     bool sniperFired() const;
     Vec3 sniperFiredPosition() const;
+    bool doorCrashed() const;
+    Vec3 doorCrashPosition() const;
 
 private:
     static bool circleIntersectsBox(float circleX, float circleZ, float radius,
@@ -110,6 +112,8 @@ private:
     Difficulty difficulty_;
     bool sniperFired_;
     Vec3 sniperFiredPosition_;
+    bool doorCrashed_;
+    Vec3 doorCrashPosition_;
     std::array<SecurityGuardModel, kGuardCount> guards_;
 };
 
