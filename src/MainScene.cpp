@@ -738,6 +738,10 @@ bool MainScene::loadCheckpointFromFile() {
     if (inventoryWeapons_.empty()) {
         inventoryWeapons_.push_back(WeaponType::Knife);
     }
+    std::sort(inventoryWeapons_.begin(), inventoryWeapons_.end(),
+              [](WeaponType left, WeaponType right) {
+                  return weaponId(left) < weaponId(right);
+              });
     equippedWeapon_ = inventoryWeapons_.front();
     checkpointLoaded_ = true;
     return true;
@@ -751,6 +755,10 @@ void MainScene::restoreCheckpoint() {
     if (inventoryWeapons_.empty()) {
         inventoryWeapons_.push_back(WeaponType::Knife);
     }
+    std::sort(inventoryWeapons_.begin(), inventoryWeapons_.end(),
+              [](WeaponType left, WeaponType right) {
+                  return weaponId(left) < weaponId(right);
+              });
     equippedWeapon_ = inventoryWeapons_.front();
 }
 
@@ -1521,10 +1529,12 @@ void MainScene::updateWeaponSelection(float dt) {
     const bool weaponDowns[] = {weapon1Down, weapon2Down, weapon3Down};
     const bool previousWeaponDowns[] = {
         previousWeapon1Down_, previousWeapon2Down_, previousWeapon3Down_};
+    const WeaponType weaponsByKey[] = {
+        WeaponType::Knife, WeaponType::Pistol, WeaponType::Sniper};
     for (std::size_t index = 0; index < 3; ++index) {
         if (weaponDowns[index] && !previousWeaponDowns[index] &&
-            index < inventoryWeapons_.size()) {
-            requestWeapon(inventoryWeapons_[index]);
+            hasWeapon(weaponsByKey[index])) {
+            requestWeapon(weaponsByKey[index]);
         }
     }
 
@@ -1546,6 +1556,11 @@ void MainScene::updateWeaponSelection(float dt) {
     weaponSwitching_ = false;
     previousFireDown_ =
         glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+bool MainScene::hasWeapon(WeaponType weapon) const {
+    return std::find(inventoryWeapons_.begin(), inventoryWeapons_.end(),
+                     weapon) != inventoryWeapons_.end();
 }
 
 void MainScene::requestWeapon(WeaponType weapon) {
@@ -2446,7 +2461,7 @@ void MainScene::renderWeaponInventory() const {
         }
 
         ThreeDUtils::drawText(
-            std::to_string(index + 1),
+            std::to_string(weaponId(weapon)),
             slot.x + 8.0f * uiScale, slot.y + 9.0f * uiScale,
             keyScale, keyColor);
     }

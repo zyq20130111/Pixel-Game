@@ -81,6 +81,7 @@ private:
     void renderFpsOverlay() const;
     void updateWeaponSelection(float dt);
     void requestWeapon(WeaponType weapon);
+    bool hasWeapon(WeaponType weapon) const;
     static int weaponId(WeaponType weapon);
     static WeaponType weaponFromId(int id);
     static std::string weaponDescription(WeaponType weapon,
