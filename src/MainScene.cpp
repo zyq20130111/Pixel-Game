@@ -75,6 +75,12 @@ std::filesystem::path saveFilePath() {
 constexpr float kSniperScopeOverlayStart = 0.55f;
 constexpr float kSniperScopeOverlayFade = 0.45f;
 constexpr float kWarehouseJumpVelocity = 7.6f;
+constexpr float kDamageFlashDuration = 0.32f;
+constexpr float kDamageFlashMaxAlpha = 0.30f;
+constexpr float kLowHealthThreshold = 0.20f;
+constexpr float kLowHealthMaxAlpha = 0.62f;
+constexpr Color kDamageFlashColor{0.82f, 0.04f, 0.02f};
+constexpr Color kLowHealthColor{0.82f, 0.04f, 0.02f};
 
 struct ExitPromptLayout {
     Rect panel;
@@ -937,7 +943,7 @@ void MainScene::updateGameplay(float dt) {
         parkingLotScene_.update(dt, camera_.position(), playerFired);
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
-        playerDamageFlashTimer_ = 0.32f;
+        playerDamageFlashTimer_ = kDamageFlashDuration;
         if (playerHealth_ <= 0) {
             playerDown_ = true;
             previousFireDown_ = false;
@@ -1074,7 +1080,7 @@ void MainScene::updateSecurityGameplay(float dt) {
         securityCheckScene_.update(dt, camera_.position());
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
-        playerDamageFlashTimer_ = 0.32f;
+        playerDamageFlashTimer_ = kDamageFlashDuration;
         if (playerHealth_ <= 0) {
             playerDown_ = true;
         }
@@ -1244,7 +1250,7 @@ void MainScene::updateWarehouseGameplay(float dt) {
         warehouseScene_.update(dt, camera_.position());
     if (playerDamage > 0) {
         playerHealth_ = std::max(0, playerHealth_ - playerDamage);
-        playerDamageFlashTimer_ = 0.32f;
+        playerDamageFlashTimer_ = kDamageFlashDuration;
         if (playerHealth_ <= 0) {
             playerDown_ = true;
         }
@@ -1902,12 +1908,12 @@ void MainScene::renderLowHealthOverlay() const {
     const float healthRatio =
         static_cast<float>(playerHealth_) /
         static_cast<float>(std::max(1, playerMaxHealth_));
-    if (healthRatio >= 0.20f) {
+    if (healthRatio >= kLowHealthThreshold) {
         return;
     }
 
-    const float intensity = 1.0f - healthRatio / 0.20f;
-    const float cornerAlpha = 0.62f * intensity;
+    const float intensity = 1.0f - healthRatio / kLowHealthThreshold;
+    const float cornerAlpha = kLowHealthMaxAlpha * intensity;
     if (cornerAlpha <= 0.0f) {
         return;
     }
@@ -1916,16 +1922,24 @@ void MainScene::renderLowHealthOverlay() const {
     const float height = static_cast<float>(framebufferHeight_);
     const float centerX = width * 0.5f;
     const float centerY = height * 0.5f;
+    const float radius =
+        0.5f * std::sqrt(width * width + height * height);
+    constexpr int kLowHealthSegments = 64;
 
     glShadeModel(GL_SMOOTH);
     glBegin(GL_TRIANGLE_FAN);
-    glColor4f(0.82f, 0.04f, 0.02f, 0.0f);
+    glColor4f(kLowHealthColor.red, kLowHealthColor.green,
+              kLowHealthColor.blue, 0.0f);
     glVertex2f(centerX, centerY);
-    glColor4f(0.82f, 0.04f, 0.02f, cornerAlpha);
-    glVertex2f(0.0f, 0.0f);
-    glVertex2f(width, 0.0f);
-    glVertex2f(width, height);
-    glVertex2f(0.0f, height);
+    glColor4f(kLowHealthColor.red, kLowHealthColor.green,
+              kLowHealthColor.blue, cornerAlpha);
+    for (int segment = 0; segment <= kLowHealthSegments; ++segment) {
+        const float angle = 2.0f * constants::kPi *
+                            static_cast<float>(segment) /
+                            static_cast<float>(kLowHealthSegments);
+        glVertex2f(centerX + std::cos(angle) * radius,
+                   centerY + std::sin(angle) * radius);
+    }
     glEnd();
     glShadeModel(GL_FLAT);
 }
@@ -1961,12 +1975,14 @@ void MainScene::renderParkingHud() const {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashProgress = std::clamp(
+            playerDamageFlashTimer_ / kDamageFlashDuration, 0.0f, 1.0f);
         const float flashAlpha =
-            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+            kDamageFlashMaxAlpha * ThreeDUtils::smoothStep(flashProgress);
         ThreeDUtils::drawRect2D(
             {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
              static_cast<float>(framebufferHeight_)},
-            dangerColor, flashAlpha);
+            kDamageFlashColor, flashAlpha);
     }
 
     renderLowHealthOverlay();
@@ -2131,12 +2147,14 @@ void MainScene::renderSecurityHud() const {
     }
 
     if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashProgress = std::clamp(
+            playerDamageFlashTimer_ / kDamageFlashDuration, 0.0f, 1.0f);
         const float flashAlpha =
-            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+            kDamageFlashMaxAlpha * ThreeDUtils::smoothStep(flashProgress);
         ThreeDUtils::drawRect2D(
             {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
              static_cast<float>(framebufferHeight_)},
-            dangerColor, flashAlpha);
+            kDamageFlashColor, flashAlpha);
     }
 
     renderLowHealthOverlay();
@@ -2258,12 +2276,14 @@ void MainScene::renderWarehouseHud() const {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     if (playerDamageFlashTimer_ > 0.0f) {
+        const float flashProgress = std::clamp(
+            playerDamageFlashTimer_ / kDamageFlashDuration, 0.0f, 1.0f);
         const float flashAlpha =
-            std::min(0.28f, playerDamageFlashTimer_ * 0.95f);
+            kDamageFlashMaxAlpha * ThreeDUtils::smoothStep(flashProgress);
         ThreeDUtils::drawRect2D(
             {0.0f, 0.0f, static_cast<float>(framebufferWidth_),
              static_cast<float>(framebufferHeight_)},
-            dangerColor, flashAlpha);
+            kDamageFlashColor, flashAlpha);
     }
 
     renderLowHealthOverlay();
